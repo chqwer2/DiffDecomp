@@ -107,7 +107,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
 
     seg_list = glob(os.path.join(data_path, '*/*seg.nii.gz'))
     img_list = [seg.replace('seg.nii.gz', f'{modality}.nii.gz') for seg in seg_list]
-    patient_list = [os.path.basename(seg).replace('seg.nii.gz', '') for seg in seg_list]
+    patient_list = [os.path.basename(seg).replace('-seg.nii.gz', '') for seg in seg_list]
     
     data_dicts = [{'image': image, 'label': label, 'name': name}    
                     for image, label, name in zip(img_list, seg_list, patient_list)]
@@ -143,10 +143,11 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
         loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=(sampler is None), num_workers=args.num_workers, 
                                 collate_fn=list_data_collate, sampler=sampler)
+        return loader, sampler, len(dataset)
     else:  
         loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn=list_data_collate)
     
-    return loader, transform, len(dataset)
+        return loader, transform, len(dataset)
     
     
 

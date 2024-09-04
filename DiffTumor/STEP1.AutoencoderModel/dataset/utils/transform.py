@@ -94,12 +94,18 @@ class LoadImaged_BodyMap(MapTransform):
     
     def __call__(self, data, reader: Optional[ImageReader] = None):
         d = dict(data)
-        # print(d['image'])
+        
+        # d: {'image': '/data/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/BraTS-GLI-00456-000/BraTS-GLI-00456-000-t1c.nii.gz', 
+        #     'label': '/data/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/BraTS-GLI-00456-000/BraTS-GLI-00456-000-seg.nii.gz', 
+        #     'name': 'BraTS-GLI-00456-000'}
+        
         for key, meta_key, meta_key_postfix in self.key_iterator(d, self.meta_keys, self.meta_key_postfix):
+            data = self._loader(d[key], reader)
+            
             try:
                 data = self._loader(d[key], reader)
             except:
-                print(d['name'])
+                print("failed:", d['name'])
                 
             if self._loader.image_only:
                 d[key] = data
@@ -115,8 +121,7 @@ class LoadImaged_BodyMap(MapTransform):
                 d[meta_key] = data[1]
         
         d['label'], d['label_meta_dict'] = self._loader(d['label'])
-        
-        # d['label'], d['label_meta_dict'] = self.label_transfer(d['label'], d['image'].shape)
+        # print("d = ", d.keys())
         
         return d
 

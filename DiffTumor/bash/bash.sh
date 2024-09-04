@@ -9,7 +9,7 @@ modality=t1c
 gpu_num=1
 cache_rate=0.05
 batch_size=4
-python train.py dataset.data_root_path=$datapath dataset.dataset_list=$dataset_list \
+HYDRA_FULL_ERROR=1 python train.py dataset.data_root_path=$datapath dataset.dataset_list=$dataset_list \
        dataset.cache_rate=$cache_rate dataset.batch_size=$batch_size \
        dataset.data_modality=$modality  model.gpus=$gpu_num
 
