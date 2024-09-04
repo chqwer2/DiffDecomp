@@ -8,10 +8,11 @@ from vq_gan_3d.model import VQGAN
 from callbacks import ImageLogger, VideoLogger
 import hydra
 from omegaconf import DictConfig, open_dict
-from dataset.dataloader import get_loader
+from dataset.dataloader_brats import get_loader
 import argparse
 import logging
 logging.disable(logging.WARNING)
+
 
 def get_parameter_number(model):
     total_num = sum(p.numel() for p in model.parameters())
@@ -19,13 +20,26 @@ def get_parameter_number(model):
     print('Total', total_num/(1024*1024.0), 'Trainable', trainable_num/(1024*1024.0))
     return {'Total': total_num, 'Trainable': trainable_num}
 
+def get_callbacks(save_step):
+    callbacks = []
+    callbacks.append(ModelCheckpoint(monitor='val/recon_loss',
+                     save_top_k=3, mode='min', filename='latest_checkpoint'))
+    callbacks.append(ModelCheckpoint(every_n_train_steps=save_step,
+                     save_top_k=-1, filename='{epoch}-{step}-{train/recon_loss:.2f}'))
+    callbacks.append(ModelCheckpoint(every_n_train_steps=1000, save_top_k=-1,
+                     filename='{epoch}-{step}-10000-{train/recon_loss:.2f}'))
+    callbacks.append(ImageLogger(
+        batch_frequency=750, max_images=4, clamp=True))
+    callbacks.append(LearningRateMonitor(logging_interval='epoch'))
+    return callbacks
+
 
 @hydra.main(config_path='config', config_name='base_cfg', version_base=None)
 def run(cfg: DictConfig, args=None):
     pl.seed_everything(cfg.model.seed)
 
-    train_dataloader, _, _ = get_loader(cfg.dataset)
-    val_dataloader=None
+    train_dataloader, val_dataloader, _ = get_loader(cfg.dataset)
+    # val_dataloader = None
 
     # automatically adjust learning rate
     base_lr = cfg.model.lr
@@ -38,16 +52,7 @@ def run(cfg: DictConfig, args=None):
     model = VQGAN(cfg)
     get_parameter_number(model)
     save_step = 500
-    callbacks = []
-    callbacks.append(ModelCheckpoint(monitor='val/recon_loss',
-                     save_top_k=3, mode='min', filename='latest_checkpoint'))
-    callbacks.append(ModelCheckpoint(every_n_train_steps=save_step,
-                     save_top_k=-1, filename='{epoch}-{step}-{train/recon_loss:.2f}'))
-    callbacks.append(ModelCheckpoint(every_n_train_steps=1000, save_top_k=-1,
-                     filename='{epoch}-{step}-10000-{train/recon_loss:.2f}'))
-    callbacks.append(ImageLogger(
-        batch_frequency=750, max_images=4, clamp=True))
-    callbacks.append(LearningRateMonitor(logging_interval='epoch'))
+    callbacks = get_callbacks(save_step)
 
     # load the most recent checkpoint file
     base_dir = os.path.join(cfg.model.default_root_dir, 'lightning_logs')
@@ -91,5 +96,7 @@ def run(cfg: DictConfig, args=None):
     trainer.fit(model, train_dataloader, val_dataloader)
 
 
+
 if __name__ == '__main__':
     run()
+

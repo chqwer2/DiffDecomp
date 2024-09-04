@@ -1,7 +1,7 @@
 name: synt
 image_channels: 1
 
-dataset_list: 'AbdomenAtals_1.0'
+dataset_list: 'Brats'
 data_root_path: /mnt/ccvl15/chongyu/
 data_modality: t1c
 data_txt_path: cross_eval/recon/

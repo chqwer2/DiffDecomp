@@ -14,8 +14,6 @@ We have shown that many types of tumors in different abdominal organs look very 
 CVPR, 2024 <br/>
 [paper](https://www.cs.jhu.edu/~alanlab/Pubs24/chen2024towards.pdf) | [code](https://github.com/MrGiovanni/DiffTumor) | [slides](https://github.com/MrGiovanni/DiffTumor/blob/main/documents/cvpr_slides.pdf) |  [huggingface](https://huggingface.co/MrGiovanni/DiffTumor)
 
-**We have documented common questions for the paper in [Frequently Asked Questions (FAQ)](documents/FAQ.md).**
-
 **We have summarized publications related to tumor synthesis in [Awesome Synthetic Tumors](https://github.com/MrGiovanni/SyntheticTumors/blob/main/AWESOME.md) [![Awesome](https://awesome.re/badge.svg)](https://awesome.re).**
 
 **We have released videos for [Visual Turing Test](https://www.dropbox.com/scl/fo/mgw953fdysvto2y6bog1c/h?rlkey=pqe9ar4xzo52ggm5v8v43275v&dl=0).** Check to see if you could tell which is real tumor and which is synthetic tumor. 
