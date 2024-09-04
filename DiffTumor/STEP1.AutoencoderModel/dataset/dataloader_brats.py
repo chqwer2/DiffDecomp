@@ -113,13 +113,13 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
                     for image, label, name in zip(img_list, seg_list, patient_list)]
     
     if args.phase == 'train':   
-        data_dicts = data_dicts[:splits[0] * len(data_dicts)]
+        data_dicts = data_dicts[:int(splits[0] * len(data_dicts))]
         transform = train_transforms
     elif args.phase == 'validation':
-        data_dicts = data_dicts[splits[0] * len(data_dicts): (splits[0] + splits[1]) * len(data_dicts)]
+        data_dicts = data_dicts[int(splits[0] * len(data_dicts)): int(splits[0] + splits[1] * len(data_dicts))]
         transform = val_transforms
     elif args.phase == 'test':
-        data_dicts = data_dicts[(splits[0] + splits[1]) * len(data_dicts):]
+        data_dicts = data_dicts[int((splits[0] + splits[1]) * len(data_dicts)):]
         transform = val_transforms
         
     print(f'{args.phase} len - {len(data_dicts)}')
