@@ -16,7 +16,7 @@ pip install hydra-core --upgrade
 
 # Monai
 pip install 'monai[nibabel]'
-mamba install -c conda-forge monai==0.9.0
+mamba install -c conda-forge monai==0.9.0 -y
 
 # cuda=12
 
@@ -25,4 +25,5 @@ mamba install -c conda-forge xorg-libx11 -y
 mamba install -c conda-forge xorg-libxext -y
 mamba install -c conda-forge libgomp -y
 mamba install -c anaconda libxcb -y
+
 ```

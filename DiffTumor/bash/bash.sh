@@ -3,7 +3,7 @@
 ### VQ-GAN-3D
 
 cd STEP1.AutoencoderModel/
-datapath=/data/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData        # (e.g., /data/bdomenAtlasMini1.0/)
+datapath=/data/brats/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData        # (e.g., /data/bdomenAtlasMini1.0/)
 dataset_list="brats"
 modality=t1c
 gpu_num=1
