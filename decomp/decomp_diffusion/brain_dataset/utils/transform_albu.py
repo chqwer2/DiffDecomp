@@ -55,6 +55,7 @@ def get_albu_transforms(img_size = (192, 192)):
                                     # contrast_limit=(-0.1, 0.1), p=0.5),
 
         # A.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), p=0.3),  
+        
         A.OneOf([
             A.GridDistortion(num_steps=2, distort_limit=0.02, p=1.0), 
             A.ElasticTransform(alpha=1, sigma=2, alpha_affine=2, p=1.0)

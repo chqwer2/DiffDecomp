@@ -51,13 +51,11 @@ class BrainDataset(BasicDataset):
 
         # ----------------------- Extract Slice -----------------------
         img, mask  = curr_dict["img"],  curr_dict["lb"]     # H, W, C, [0 - 255]
-        # mean, std  = curr_dict['mean'], curr_dict['std']
+        mean, std  = curr_dict['mean'], curr_dict['std']
         slice      = int(curr_dict['slice'] * 100 + 0.5)
         
-        # std    = 1 if std < 1e-3 else std
-        
-        mean = img.mean()
-        std  = img.std()
+        # mean = img.mean()
+        # std  = img.std()
         std    = 1 if std < 1e-3 else std
         
         img = (img - mean) / std
@@ -66,7 +64,9 @@ class BrainDataset(BasicDataset):
         img, mask = self.perform_trans(img, mask)
         img, mask = map(lambda arr: self.hwc_to_chw(arr), [img, mask])
 
+
         img = (img - img.min()) / (img.max() - img.min())
+        
         
         if self.tile_z_dim > 1 and self.input_window == 1: 
             img = img.repeat( [ self.tile_z_dim, 1, 1] )
