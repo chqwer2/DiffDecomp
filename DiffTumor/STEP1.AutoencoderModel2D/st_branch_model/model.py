@@ -320,7 +320,8 @@ class TwoBranchModel(pl.LightningModule):
 
         #                     self.head_T1, self.down1_T1, self.down2_T1, self.down3_T1,
         #                     self.down1_mo_T1, self.down2_mo_T1, self.down3_mo_T1, self.neck_T1, self.neck_mo_T1]
-        params = [self.model.parameters()]
+        params = list(self.model.parameters())
+        
         # for module in net_module_set:
         #     params += list(module.parameters())
         
