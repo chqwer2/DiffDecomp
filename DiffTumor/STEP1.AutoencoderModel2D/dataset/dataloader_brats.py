@@ -15,7 +15,8 @@ from monai.transforms import (
     Compose,
     SqueezeDimd,
 )
-from monai.data import GridPatchDataset, PatchIterd, ShuffleBuffer
+from monai.data import GridPatchDataset, ShuffleBuffer, PatchIterd
+from .cachedataset import PatchIterd
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
 import monai
 
@@ -152,6 +153,8 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
             print(f'{args.phase} using Dataset')
             dataset = Dataset(data=data_dicts, transform=transform)
     
+    # check_data = monai.utils.misc.first(loader)
+      
     use_2D = True  # Has some bugs to fix
     # 2D slice
     # patch_size: size of patches to generate slices for, 0/None selects whole dimension
@@ -160,9 +163,6 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         patch_size=(None, None, 1), 
         start_pos=(0, 0, 0)  # dynamic first two dimensions
     )
-    # patch_transform = Compose([
-    #     SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
-    # ])
     
     if use_2D and args.phase == 'train':
         dataset_2d = GridPatchDataset(
@@ -176,13 +176,15 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
    
     elif args.phase == 'train':
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
-        loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=(sampler is None), num_workers=args.num_workers, 
-                                collate_fn=list_data_collate, sampler=sampler)
+        loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=(sampler is None), 
+                            num_workers=args.num_workers, 
+                            collate_fn=list_data_collate, sampler=sampler)
     else:  
         loader = DataLoader(dataset, batch_size=1, shuffle=False, 
                             num_workers=4, collate_fn=list_data_collate)
     
     check_data = monai.utils.misc.first(loader)
+    
     
     return loader, transform  
     

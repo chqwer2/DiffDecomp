@@ -468,12 +468,12 @@ class TwoBranchModel(pl.LightningModule):
         print(aux.shape)
         
 
-        
+        # torch.Size([8, 96, 96, 1])
         # torch.Size([16, 1, 96, 96, 96])
         # torch.Size([16, 1, 96, 96, 96])
 
-        x   = x.permute(0, 1, -1, -3, -2).detach()      # [B, C, D, H, W]    ?
-        aux = aux.permute(0, 1, -1, -3, -2).detach()  # [B, C, D, H, W]    ?
+        x   = x.permute(0, 1,  -3, -2).detach()      # [B, C, D, H, W]    ?
+        aux = aux.permute(0, 1, -3, -2).detach()  # [B, C, D, H, W]    ?
         
         out = self.forward(x, aux)
         recon_out = out['recon_out']    # x_recon?
