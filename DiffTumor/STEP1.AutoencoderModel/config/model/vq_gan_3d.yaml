@@ -1,5 +1,6 @@
 seed: 1234
 num_workers: 16
+deviceid: 2
 
 gpus: 1
 accumulate_grad_batches: 1

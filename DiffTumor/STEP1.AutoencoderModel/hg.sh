@@ -32,10 +32,12 @@ aux_modality="t2w"  # flair
 cache_rate=0.001
 batch_size=8
 dataset_list="AbdomenAtlas1.0Mini"
+deviceid=1
 
 # single GPU
 gpu_num=1
 python train.py dataset.data_root_path=$datapath  \
+       model.deviceid=$deviceid \
        dataset.data_modality=$data_modality dataset.aux_modality=$aux_modality \
        dataset.dataset_list=$dataset_list \
        dataset.cache_rate=$cache_rate \

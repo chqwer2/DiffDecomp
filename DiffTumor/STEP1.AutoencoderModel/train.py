@@ -5,6 +5,10 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from torch.utils.data import DataLoader
 from vq_gan_3d.model import VQGAN
+
+from st_branch_model.model import TwoBranchModel
+
+
 from st_branch_model.model import TwoBranchModel
 
 from callbacks import ImageLogger, VideoLogger
@@ -39,6 +43,10 @@ def get_callbacks(save_step):
 
 @hydra.main(config_path='config', config_name='base_cfg', version_base=None)
 def run(cfg: DictConfig, args=None):
+    
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(cfg.model.deviceid)
+    
+    
     pl.seed_everything(cfg.model.seed)
 
     train_dataloader, val_dataloader, _ = get_loader(cfg.dataset)
@@ -52,7 +60,9 @@ def run(cfg: DictConfig, args=None):
         cfg.model.default_root_dir = os.path.join(
             cfg.model.default_root_dir, cfg.dataset.name, cfg.model.default_root_dir_postfix)
 
-    model = VQGAN(cfg)
+    # model = VQGAN(cfg)
+    model = TwoBranchModel(cfg)
+    
     get_parameter_number(model)
     save_step = 500
     callbacks = get_callbacks(save_step)
