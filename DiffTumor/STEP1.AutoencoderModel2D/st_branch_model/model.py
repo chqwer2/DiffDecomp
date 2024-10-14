@@ -464,8 +464,8 @@ class TwoBranchModel(pl.LightningModule):
         # torch.Size([8, 96, 96, 1])
         # torch.Size([16, 1, 96, 96, 96])
 
-        x   = x.permute(0,   -1, -3, -2).detach()      # [B, C, H, W]   
-        aux = aux.permute(0, -1, -3, -2).detach()      # [B, C, H, W]   
+        x   = x.permute(0,   -1, -3, -2)#.detach()      # [B, C, H, W]   
+        aux = aux.permute(0, -1, -3, -2)#.detach()      # [B, C, H, W]   
         
         out = self.forward(x, aux)
         recon_out = out['recon_out']   
@@ -490,7 +490,9 @@ class TwoBranchModel(pl.LightningModule):
             
         # elif optimizer_idx == 1:
             # loss = self.get_dis_loss(recon_out, x, tag="dis")
-    
+        print("loss = ", loss)
+        
+        
         return loss
     
 
