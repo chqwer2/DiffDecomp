@@ -170,19 +170,19 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         start_pos=(0, 0, 0)  # dynamic first two dimensions
     )
     
-    patch_transform = Compose(
-        [
-            # SqueezeDimd(keys=["img", "seg"], dim=-1),  # squeeze the last dim
-            Resized(keys=["image", "aux", "label"], spatial_size=[128, 128])
-            # to use crop/pad instead of resize:
-            # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
-        ]
-    )
+    # patch_transform = Compose(
+    #     [
+    #         # SqueezeDimd(keys=["img", "seg"], dim=-1),  # squeeze the last dim
+    #         Resized(keys=["image", "aux", "label"], spatial_size=[128, 128])
+    #         # to use crop/pad instead of resize:
+    #         # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
+    #     ]
+    # )
     
     if use_2D and args.phase == 'train':
         dataset_2d = GridPatchDataset(
             data=dataset, patch_iter=patch_func, 
-            transform=patch_transform, with_coordinates=False
+            transform=None, with_coordinates=False
         )
         dataset_sf = ShuffleBuffer(dataset_2d, buffer_size=50, seed=0)
         loader = DataLoader(dataset_sf, batch_size=args.batch_size, 

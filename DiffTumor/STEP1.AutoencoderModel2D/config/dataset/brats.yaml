@@ -17,8 +17,8 @@ b_max: 1.0
 space_x: 1.0
 space_y: 1.0
 space_z: 1.0
-roi_x: 96
-roi_y: 96
+roi_x: 128
+roi_y: 128
 roi_z: 96
 num_samples: 2
 phase: train

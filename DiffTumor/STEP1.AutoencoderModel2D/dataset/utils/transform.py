@@ -208,16 +208,16 @@ def get_transforms(args):
                         spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
                         mode=["minimum", "minimum", "constant"]),
             
-            # RandCropByPosNegLabeld(
-            #     keys=["image", "aux", "label"],
-            #     label_key="label",
-            #     spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
-            #     pos=20,
-            #     neg=1,
-            #     num_samples=args.num_samples,
-            #     image_key="image",
-            #     image_threshold=-1,
-            # ),
+            RandCropByPosNegLabeld(
+                keys=["image", "aux", "label"],
+                label_key="label",
+                spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
+                pos=20,
+                neg=1,
+                num_samples=args.num_samples,
+                image_key="image",
+                image_threshold=-1,
+            ),
             
             RandRotate90d(
                 keys=["image", "aux", "label"],
