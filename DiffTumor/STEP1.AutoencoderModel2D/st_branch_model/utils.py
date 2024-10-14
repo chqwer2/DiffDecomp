@@ -14,6 +14,7 @@ import pdb as pdb_original
 import SimpleITK as sitk
 import logging
 from torch import nn
+import torch.nn.functional as F
 
 import imageio.core.util
 logging.getLogger("imageio_ffmpeg").setLevel(logging.ERROR)
