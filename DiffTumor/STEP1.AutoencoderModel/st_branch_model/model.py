@@ -8,7 +8,8 @@ from .utils import shift_dim, adopt_weight, comp_getattr, hinge_d_loss, vanilla_
 from .utils import AMPLoss, PhaLoss
 from .lpips import LPIPS
 # from vq_gan_3d.model.codebook import Codebook
-
+import numpy as np
+# from .discriminator import NLayerDiscriminator, NLayerDiscriminator3D
 
 def silu(x):
     return x * torch.sigmoid(x)
