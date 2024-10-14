@@ -484,9 +484,9 @@ class TwoBranchModel(pl.LightningModule):
             fft_weight = 0.01
             recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out")
             recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre")
-            amp = self.amploss(recon_fre, x)
-            pha = self.phaloss(recon_fre, x)
-            loss = recon_out_loss + recon_fre_loss + fft_weight * ( amp + pha )
+            # amp = self.amploss(recon_fre, x)
+            # pha = self.phaloss(recon_fre, x)
+            loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
             
         elif optimizer_idx == 1:
             loss = self.get_dis_loss(recon_out, x, tag="dis")
@@ -501,16 +501,16 @@ class TwoBranchModel(pl.LightningModule):
         logits_image_real, _ = self.image_discriminator(target.detach())
         # logits_video_real, _ = self.video_discriminator(target.detach())
 
-        logits_image_fake, _ = self.image_discriminator(
-            recon.detach())
+        logits_image_fake, _ = self.image_discriminator(recon.detach())
+        
         # logits_video_fake, _ = self.video_discriminator(recon.detach())
 
         d_image_loss = self.disc_loss(logits_image_real, logits_image_fake)
         # d_video_loss = self.disc_loss(logits_video_real, logits_video_fake)
+        
         disc_factor = adopt_weight(
             self.global_step, threshold=self.args.model.discriminator_iter_start)
-        discloss = disc_factor * \
-            (self.image_gan_weight*d_image_loss )
+        discloss = disc_factor * (self.image_gan_weight*d_image_loss )
 
         self.log(f"train/{tag}/logits_image_real", logits_image_real.mean().detach(),
                     logger=True, on_step=True, on_epoch=True)
