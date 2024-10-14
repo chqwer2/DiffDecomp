@@ -182,7 +182,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     else:  
         loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn=list_data_collate)
     
-    return loader, transform, len(dataset)
+    return loader, transform  #, len(dataset)
     
     
 
