@@ -17,9 +17,9 @@ from monai.transforms import (
 )
 from monai.data import GridPatchDataset, PatchIterd, ShuffleBuffer
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
+import monai
 
-
-IMAGE_NII = "ct.nii.gz"
+# IMAGE_NII = "ct.nii.gz"
 
 
 class UniformDataset(Dataset):
@@ -181,6 +181,8 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         return loader, sampler, len(dataset)
     else:  
         loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn=list_data_collate)
+    
+    check_data = monai.utils.misc.first(loader)
     
     return loader, transform  #, len(dataset)
     
