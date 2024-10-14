@@ -46,8 +46,8 @@ class TwoBranchModel(nn.Module):
         self.video_discriminator = NLayerDiscriminator3D(
             args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm3d)
 
-        self.amploss = AMPLoss().to(self.device, non_blocking=True)
-        self.phaloss = PhaLoss().to(self.device, non_blocking=True)
+        self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
+        self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
 
         if args.model.disc_loss_type == 'vanilla':
                 self.disc_loss = vanilla_d_loss
