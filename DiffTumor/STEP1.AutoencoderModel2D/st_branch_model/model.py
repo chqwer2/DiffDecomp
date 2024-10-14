@@ -303,6 +303,7 @@ class TwoBranchModel(pl.LightningModule):
         lr = self.args.model.lr
         
         params = list(self.model.parameters())
+        print('Total number of parameters:', sum(p.numel() for p in params))
         
         opt_ae = torch.optim.AdamW(params, lr=lr, betas=(0.5, 0.9))
         
@@ -449,6 +450,8 @@ class TwoBranchModel(pl.LightningModule):
     
     
     def training_step(self, batch, batch_idx, optimizer_idx):
+        self.model.train()
+        
         x   = batch['image']
         aux = batch['aux']
         
