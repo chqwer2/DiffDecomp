@@ -115,7 +115,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     
     patient_list = [os.path.basename(seg).replace('-seg.nii.gz', '') for seg in seg_list]
     
-    data_dicts = [{'image': image, 'aux': aux, 'label': label, 'name': name}    
+    data_dicts = [{'image': image, 'image1': aux, 'label': label, 'name': name}    
                     for image, aux, label, name in zip(main_img_list, aux_img_list, seg_list, patient_list)]
     
     if args.phase == 'train':   

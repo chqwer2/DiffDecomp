@@ -459,7 +459,8 @@ class TwoBranchModel(pl.LightningModule):
     
     def training_step(self, batch, batch_idx, optimizer_idx):
         x   = batch['image']
-        aux = batch['aux']
+        aux = batch['image1']
+        print("aux:  ", aux)
         
         x   = x.permute(0, 1, -1, -3, -2).detach()      # [B, C, D, H, W]    ?
         aux = aux.permute(0, 1, -1, -3, -2).detach()  # [B, C, D, H, W]    ?
