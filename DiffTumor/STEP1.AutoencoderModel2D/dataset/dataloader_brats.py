@@ -148,7 +148,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         else:
             dataset = Dataset(data=data_dicts, transform=transform)
     
-    use_2D = True
+    use_2D = False
     # 2D slice
     # patch_size: size of patches to generate slices for, 0/None selects whole dimension
     patch_func = PatchIterd(
