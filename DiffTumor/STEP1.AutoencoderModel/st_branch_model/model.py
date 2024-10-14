@@ -10,6 +10,7 @@ from .lpips import LPIPS
 # from vq_gan_3d.model.codebook import Codebook
 import numpy as np
 # from .discriminator import NLayerDiscriminator, NLayerDiscriminator3D
+import pytorch_lightning as pl
 
 def silu(x):
     return x * torch.sigmoid(x)
@@ -23,7 +24,7 @@ class SiLU(nn.Module):
         return silu(x)
     
     
-class TwoBranchModel(nn.Module):
+class TwoBranchModel(pl.LightningModule):
     def __init__(self, args):
         super(TwoBranchModel, self).__init__()
 
