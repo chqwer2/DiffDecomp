@@ -165,17 +165,17 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         ])
     
     if use_2D and args.phase == 'train':
-        data_dicts = [{'image': image, 'aux': aux, 'label': label} #, 'name': name}    
-            for image, aux, label in zip(main_img_list, aux_img_list, seg_list)]
+        # data_dicts = [{'image': image, 'aux': aux, 'label': label} #, 'name': name}    
+        #     for image, aux, label in zip(main_img_list, aux_img_list, seg_list)]
         
-        dataset = GridPatchDataset(
-            data=data_dicts, patch_iter=patch_func, 
+        dataset_2d = GridPatchDataset(
+            data=dataset, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
         )
-        dataset_sf = ShuffleBuffer(dataset, buffer_size=30, seed=0)
-        loader = DataLoader(dataset_sf, batch_size=args.batch_size, num_workers=args.num_workers, 
+        dataset_sf = ShuffleBuffer(dataset_2d, buffer_size=30, seed=0)
+        loader = DataLoader(dataset_sf, batch_size=args.batch_size, 
+                            num_workers=args.num_workers, 
                             pin_memory=torch.cuda.is_available())
-
    
     elif args.phase == 'train':
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
