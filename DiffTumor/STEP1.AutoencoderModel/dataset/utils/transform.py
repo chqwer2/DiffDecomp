@@ -186,11 +186,11 @@ def get_transforms(args):
             AddChanneld(keys=["image", "aux", "label"]),
             Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
             
-            # Spacingd(
-            #     keys=["image", "aux", "label"],
-            #     pixdim=(args.space_x, args.space_y, args.space_z),
-            #     mode=("bilinear", "nearest"),
-            # ), # process h5 to here
+            Spacingd(
+                keys=["image", "aux", "label"],
+                pixdim=(args.space_x, args.space_y, args.space_z),
+                mode=("bilinear", "bilinear", "nearest"),
+            ), # process h5 to here
             
             ScaleIntensityRanged(
                 keys=["image", "aux"],
@@ -200,7 +200,11 @@ def get_transforms(args):
                 b_max=args.b_max,
                 clip=True,
             ),
-            SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode=["minimum", "constant"]),
+            
+            SpatialPadd(keys=["image", "aux", "label"], 
+                        spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
+                        mode=["minimum", "minimum", "constant"]),
+            
             RandCropByPosNegLabeld(
                 keys=["image", "aux", "label"],
                 label_key="label",
@@ -230,7 +234,7 @@ def get_transforms(args):
             Spacingd(
                 keys=["image", "aux", "label"],
                 pixdim=(args.space_x, args.space_y, args.space_z),
-                mode=("bilinear", "nearest"),
+                mode=("bilinear", "bilinear", "nearest"),
             ), 
             ScaleIntensityRanged(
                 keys=["image", "aux"],
@@ -240,7 +244,8 @@ def get_transforms(args):
                 b_max=args.b_max,
                 clip=True,
             ),
-            SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode='constant'),
+            SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
+                        mode='constant'),
             RandCropByPosNegLabeld(
                 keys=["image", "aux", "label"],
                 label_key="label",
