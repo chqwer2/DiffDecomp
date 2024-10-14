@@ -49,7 +49,7 @@ def run(cfg: DictConfig, args=None):
     
     pl.seed_everything(cfg.model.seed)
 
-    train_dataloader, val_dataloader, _ = get_loader(cfg.dataset)
+    train_dataloader, val_dataloader = get_loader(cfg.dataset)
     # val_dataloader = None
 
     # automatically adjust learning rate
