@@ -465,8 +465,8 @@ class TwoBranchModel(pl.LightningModule):
         x = x.squeeze(1)
         aux = aux.squeeze(1)
         
-        print(x.shape)
-        print(aux.shape)
+        # print(x.shape)
+        # print(aux.shape)
         
 
         # torch.Size([8, 96, 96, 1])
