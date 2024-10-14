@@ -121,7 +121,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     
     data_dicts = [{'image': image, 'aux': aux, 'label': label, 'name': name}    
                     for image, aux, label, name in zip(main_img_list, aux_img_list, seg_list, patient_list)]
-    
+
     if args.phase == 'train':   
         data_dicts = data_dicts[:int(splits[0] * len(data_dicts))]
         transform = train_transforms
@@ -165,6 +165,9 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         ])
     
     if use_2D and args.phase == 'train':
+        data_dicts = [{'image': image, 'aux': aux, 'label': label} #, 'name': name}    
+            for image, aux, label in zip(main_img_list, aux_img_list, seg_list)]
+        
         dataset = GridPatchDataset(
             data=data_dicts, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
