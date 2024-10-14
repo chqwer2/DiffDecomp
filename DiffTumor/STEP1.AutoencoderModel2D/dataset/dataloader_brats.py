@@ -148,9 +148,9 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         else:
             dataset = Dataset(data=data_dicts, transform=transform)
     
-    use_2D = True
+    use_2D = False
     # 2D slice
-    # define the 2d slice dataset using monai.data.PatchIterd and monai.data.GridPatchDataset
+    # patch_size: size of patches to generate slices for, 0/None selects whole dimension
     patch_func = PatchIterd(
         keys=["image", "aux", "label"], 
         patch_size=(None, None, 1), 
