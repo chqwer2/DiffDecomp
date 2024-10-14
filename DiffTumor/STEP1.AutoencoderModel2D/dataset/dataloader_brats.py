@@ -152,13 +152,13 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     # 2D slice
     # define the 2d slice dataset using monai.data.PatchIterd and monai.data.GridPatchDataset
     patch_func = PatchIterd(
-        keys=["img", "aux", "seg"], 
+        keys=["image", "aux", "seg"], 
         patch_size=(None, None, 1), 
         start_pos=(0, 0, 0)  # dynamic first two dimensions
     )
     patch_transform = Compose(
         [
-            SqueezeDimd(keys=["img", "aux", "seg"], dim=-1),  # squeeze the last dim
+            SqueezeDimd(keys=["image", "aux", "seg"], dim=-1),  # squeeze the last dim
             # Resized(keys=["img", "aux", "seg"], spatial_size=[48, 48]),
             # to use crop/pad instead of resize:
             # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
