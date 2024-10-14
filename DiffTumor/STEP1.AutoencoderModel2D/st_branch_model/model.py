@@ -302,33 +302,11 @@ class TwoBranchModel(pl.LightningModule):
     def configure_optimizers(self):
         lr = self.args.model.lr
         
-        # net_module_set = [self.head_fre, self.down1_fre, self.down1_fre_mo, self.down2_fre, self.down2_fre_mo, self.down3_fre, self.down3_fre_mo, self.neck_fre, self.neck_fre_mo, self.up1_fre,
-        #                     self.up1_fre_mo,
-        #                     self.up2_fre, self.up2_fre_mo,
-        #                     self.up3_fre, self.up3_fre_mo, self.tail_fre,
-
-        #                     self.head, self.down1, self.down2, self.down3,
-        #                     self.down1_mo, self.down2_mo, self.down3_mo, self.neck, self.neck_mo,
-        #                     self.up1, self.up2, self.up3, 
-        #                     self.up1_mo, self.up2_mo, self.up3_mo, 
-        #                     self.tail, 
-
-        #                     self.conv_fuse,
-
-        #                     self.head_fre_T1, self.down1_fre_T1, self.down1_fre_mo_T1, self.down2_fre_T1, self.down2_fre_mo_T1, self.down3_fre_T1, self.down3_fre_mo_T1, self.neck_fre_T1, self.neck_fre_mo_T1, 
-
-
-        #                     self.head_T1, self.down1_T1, self.down2_T1, self.down3_T1,
-        #                     self.down1_mo_T1, self.down2_mo_T1, self.down3_mo_T1, self.neck_T1, self.neck_mo_T1]
         params = list(self.model.parameters())
         
-        # for module in net_module_set:
-        #     params += list(module.parameters())
+        opt_ae = torch.optim.AdamW(params, lr=lr, betas=(0.5, 0.9))
         
-        opt_ae = torch.optim.Adam(params,
-                                  lr=lr, betas=(0.5, 0.9))
-        
-        opt_disc = torch.optim.Adam(list(self.image_discriminator.parameters()) +
+        opt_disc = torch.optim.AdamW(list(self.image_discriminator.parameters()) +
                                     list(self.video_discriminator.parameters()),
                                     lr=lr, betas=(0.5, 0.9))
         
@@ -479,28 +457,36 @@ class TwoBranchModel(pl.LightningModule):
         
         # print(x.shape)
         # print(aux.shape)
-        
-
+    
         # torch.Size([8, 96, 96, 1])
         # torch.Size([16, 1, 96, 96, 96])
 
-        x   = x.permute(0,   -1, -3, -2).detach()      # [B, C, H, W]    ?
-        aux = aux.permute(0, -1, -3, -2).detach()      # [B, C, H, W]    ?
+        x   = x.permute(0,   -1, -3, -2).detach()      # [B, C, H, W]   
+        aux = aux.permute(0, -1, -3, -2).detach()      # [B, C, H, W]   
         
         out = self.forward(x, aux)
-        recon_out = out['recon_out']    # x_recon?
+        recon_out = out['recon_out']   
         recon_fre = out['recon_fre']
         
-        if optimizer_idx == 0:
-            fft_weight = 0.01
-            recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out")
-            recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre")
-            # amp = self.amploss(recon_fre, x)
-            # pha = self.phaloss(recon_fre, x)
-            loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
+        
+        recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out", use_dis=False)
+        recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre", use_dis=False)
+        # amp = self.amploss(recon_fre, x)
+        # pha = self.phaloss(recon_fre, x)
+        
+        loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
+
             
-        elif optimizer_idx == 1:
-            loss = self.get_dis_loss(recon_out, x, tag="dis")
+        # if optimizer_idx == 0:
+        #     fft_weight = 0.01
+        #     recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out")
+        #     recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre")
+        #     # amp = self.amploss(recon_fre, x)
+        #     # pha = self.phaloss(recon_fre, x)
+        #     loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
+            
+        # elif optimizer_idx == 1:
+            # loss = self.get_dis_loss(recon_out, x, tag="dis")
     
         return loss
     
@@ -540,8 +526,9 @@ class TwoBranchModel(pl.LightningModule):
         return discloss
 
     
-    def get_recon_loss(self, recon, target, tag="recon_out"):
-        recon_loss = F.l1_loss(recon, target) * self.l1_weight
+    def get_recon_loss(self, recon, target, tag="recon_out", use_dis=True):
+        # recon_loss = F.l1_loss(recon, target) * self.l1_weight
+        recon_loss = ((recon - target)**2).mean() * self.l1_weight
         
         # Perceptual loss
         perceptual_loss = 0
@@ -551,42 +538,38 @@ class TwoBranchModel(pl.LightningModule):
             # Selects one random 2D image from each 3D Image
             
             perceptual_loss = self.perceptual_model(recon, target).mean() * self.perceptual_weight
-
-            # Discriminator loss (turned on after a certain epoch)
-            logits_image_fake, pred_image_fake = self.image_discriminator(recon)
-            # logits_video_fake, pred_video_fake = self.video_discriminator(recon)
+            recon_loss += perceptual_loss 
             
             
-            g_image_loss = -torch.mean(logits_image_fake)
-            # g_video_loss = -torch.mean(logits_video_fake)
-            g_loss = self.image_gan_weight * g_image_loss 
+            if use_dis:
+                # Discriminator loss (turned on after a certain epoch)
+                logits_image_fake, pred_image_fake = self.image_discriminator(recon)
+                # logits_video_fake, pred_video_fake = self.video_discriminator(recon)
+                g_image_loss = -torch.mean(logits_image_fake)
+                # g_video_loss = -torch.mean(logits_video_fake)
+                g_loss = self.image_gan_weight * g_image_loss 
+                
+                disc_factor = adopt_weight(
+                    self.global_step, threshold=self.args.model.discriminator_iter_start)
+                aeloss = disc_factor * g_loss
+
+                # GAN feature matching loss - tune features such that we get the same prediction result on the discriminator
+                image_gan_feat_loss = 0
+                feat_weights = 4.0 / (3 + 1)
+                if self.image_gan_weight > 0:
+                    logits_image_real, pred_image_real = self.image_discriminator( recon)
+                    for i in range(len(pred_image_fake)-1):
+                        image_gan_feat_loss += feat_weights * \
+                            F.l1_loss(pred_image_fake[i], pred_image_real[i].detach(
+                            )) * (self.image_gan_weight > 0)
             
-            disc_factor = adopt_weight(
-                self.global_step, threshold=self.args.model.discriminator_iter_start)
-            aeloss = disc_factor * g_loss
-
-            # GAN feature matching loss - tune features such that we get the same prediction result on the discriminator
-            image_gan_feat_loss = 0
-            feat_weights = 4.0 / (3 + 1)
-            if self.image_gan_weight > 0:
-                logits_image_real, pred_image_real = self.image_discriminator( recon)
-                for i in range(len(pred_image_fake)-1):
-                    image_gan_feat_loss += feat_weights * \
-                        F.l1_loss(pred_image_fake[i], pred_image_real[i].detach(
-                        )) * (self.image_gan_weight > 0)
-           
-            gan_feat_loss = disc_factor * self.gan_feat_weight *  (image_gan_feat_loss)
-
-            recon_loss += aeloss + perceptual_loss + gan_feat_loss # commitment_loss +
+                gan_feat_loss = disc_factor * self.gan_feat_weight *  (image_gan_feat_loss)
+                recon_loss += gan_feat_loss + aeloss
             
         self.log(f"train/{tag}/g_image_loss", g_image_loss,
                     logger=True, on_step=True, on_epoch=True)
-        # self.log(f"train/{tag}/g_video_loss", g_video_loss,
-        #             logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/image_gan_feat_loss", image_gan_feat_loss,
                     logger=True, on_step=True, on_epoch=True)
-        # self.log(f"train/{tag}/video_gan_feat_loss", video_gan_feat_loss,
-        #             logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/perceptual_loss", perceptual_loss,
                     prog_bar=True, logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/recon_loss", recon_loss, prog_bar=True,
