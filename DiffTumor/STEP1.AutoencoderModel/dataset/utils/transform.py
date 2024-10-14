@@ -182,25 +182,25 @@ def get_transforms(args):
 
     train_transforms = Compose(
         [
-            LoadImaged_BodyMap(keys=["image"]),
-            AddChanneld(keys=["image", "label"]),
-            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            LoadImaged_BodyMap(keys=["image", "aux"]),
+            AddChanneld(keys=["image", "aux", "label"]),
+            Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
             Spacingd(
-                keys=["image", "label"],
+                keys=["image", "aux", "label"],
                 pixdim=(args.space_x, args.space_y, args.space_z),
                 mode=("bilinear", "nearest"),
             ), # process h5 to here
             ScaleIntensityRanged(
-                keys=["image"],
+                keys=["image", "aux"],
                 a_min=args.a_min,
                 a_max=args.a_max,
                 b_min=args.b_min,
                 b_max=args.b_max,
                 clip=True,
             ),
-            SpatialPadd(keys=["image", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode=["minimum", "constant"]),
+            SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode=["minimum", "constant"]),
             RandCropByPosNegLabeld(
-                keys=["image", "label"],
+                keys=["image", "aux", "label"],
                 label_key="label",
                 spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
                 pos=20,
@@ -210,35 +210,35 @@ def get_transforms(args):
                 image_threshold=-1,
             ),
             RandRotate90d(
-                keys=["image", "label"],
+                keys=["image", "aux", "label"],
                 prob=0.10,
                 max_k=3,
             ),
-            ToTensord(keys=["image", "label"]),
+            ToTensord(keys=["image", "aux", "label"]),
         ]
     )
 
     val_transforms = Compose(
         [
-            LoadImageh5d(keys=["image"]),
-            AddChanneld(keys=["image", "label"]),
-            Orientationd(keys=["image", "label"], axcodes="RAS"),
+            LoadImageh5d(keys=["image", "aux"]),
+            AddChanneld(keys=["image", "aux", "label"]),
+            Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
             Spacingd(
-                keys=["image", "label"],
+                keys=["image", "aux", "label"],
                 pixdim=(args.space_x, args.space_y, args.space_z),
                 mode=("bilinear", "nearest"),
             ), 
             ScaleIntensityRanged(
-                keys=["image"],
+                keys=["image", "aux"],
                 a_min=args.a_min,
                 a_max=args.a_max,
                 b_min=args.b_min,
                 b_max=args.b_max,
                 clip=True,
             ),
-            SpatialPadd(keys=["image", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode='constant'),
+            SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), mode='constant'),
             RandCropByPosNegLabeld(
-                keys=["image", "label"],
+                keys=["image", "aux", "label"],
                 label_key="label",
                 spatial_size=(args.roi_x, args.roi_y, args.roi_z),
                 pos=2,
@@ -247,7 +247,7 @@ def get_transforms(args):
                 image_key="image",
                 image_threshold=-1,
             ),
-            ToTensord(keys=["image", "label"]),
+            ToTensord(keys=["image", "aux", "label"]),
         ]
     )
     return train_transforms, val_transforms
