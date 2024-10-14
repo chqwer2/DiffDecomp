@@ -185,11 +185,13 @@ def get_transforms(args):
             LoadImaged_BodyMap(keys=["image", "aux"]),
             AddChanneld(keys=["image", "aux", "label"]),
             Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
-            Spacingd(
-                keys=["image", "aux", "label"],
-                pixdim=(args.space_x, args.space_y, args.space_z),
-                mode=("bilinear", "nearest"),
-            ), # process h5 to here
+            
+            # Spacingd(
+            #     keys=["image", "aux", "label"],
+            #     pixdim=(args.space_x, args.space_y, args.space_z),
+            #     mode=("bilinear", "nearest"),
+            # ), # process h5 to here
+            
             ScaleIntensityRanged(
                 keys=["image", "aux"],
                 a_min=args.a_min,
@@ -225,11 +227,11 @@ def get_transforms(args):
             Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
             
             # ValueError: Sequence must have length 3, got 2.
-            # Spacingd(
-            #     keys=["image", "aux", "label"],
-            #     pixdim=(args.space_x, args.space_y, args.space_z),
-            #     mode=("bilinear", "nearest"),
-            # ), 
+            Spacingd(
+                keys=["image", "aux", "label"],
+                pixdim=(args.space_x, args.space_y, args.space_z),
+                mode=("bilinear", "nearest"),
+            ), 
             ScaleIntensityRanged(
                 keys=["image", "aux"],
                 a_min=args.a_min,
