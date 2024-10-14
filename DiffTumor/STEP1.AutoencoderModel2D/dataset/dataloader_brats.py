@@ -161,9 +161,6 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     ])
     
     if use_2D and args.phase == 'train':
-        # data_dicts = [{'image': image, 'aux': aux, 'label': label} #, 'name': name}    
-        #     for image, aux, label in zip(main_img_list, aux_img_list, seg_list)]
-        
         dataset_2d = GridPatchDataset(
             data=dataset, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
@@ -183,7 +180,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     
     check_data = monai.utils.misc.first(loader)
     
-    return loader, transform  #, len(dataset)
+    return loader, transform  
     
     
 

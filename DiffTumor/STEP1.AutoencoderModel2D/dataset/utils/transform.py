@@ -224,7 +224,6 @@ def get_transforms(args):
                 max_k=3,
             ),
             
-            # EnsureChannelFirstd(keys=["image", "aux","label"]),
             ToTensord(keys=["image", "aux", "label"]),
         ]
     )
