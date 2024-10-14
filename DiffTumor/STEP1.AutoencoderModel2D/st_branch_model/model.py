@@ -39,8 +39,8 @@ class ModelBackbone(nn.Module):
         self.init_modality_fre_fusion(args)
         self.init_modality_spa_fusion(args)
     
-        def init_T2_frq_branch(self, args):
-            ### T2frequency branch
+    def init_T2_frq_branch(self, args):
+        ### T2frequency branch
         modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
                                             kernel_size=3, padding=1, act=args.model.act)]
         self.head_fre = nn.Sequential(*modules_head_fre)
