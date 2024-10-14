@@ -470,26 +470,18 @@ class TwoBranchModel(pl.LightningModule):
         out = self.forward(x, aux)
         recon_out = out['recon_out']   
         recon_fre = out['recon_fre']
-        
-        
-        recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out", use_dis=False)
-        recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre", use_dis=False)
-        # amp = self.amploss(recon_fre, x)
-        # pha = self.phaloss(recon_fre, x)
-        
-        loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
-
             
-        # if optimizer_idx == 0:
-        #     fft_weight = 0.01
-        #     recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out")
-        #     recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre")
-        #     # amp = self.amploss(recon_fre, x)
-        #     # pha = self.phaloss(recon_fre, x)
-        #     loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
+        if optimizer_idx == 0:
+            fft_weight = 0.01
+            recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out", use_dis=False)
+            recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre", use_dis=False)
+            # amp = self.amploss(recon_fre, x)
+            # pha = self.phaloss(recon_fre, x)
+            loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
             
-        # elif optimizer_idx == 1:
-            # loss = self.get_dis_loss(recon_out, x, tag="dis")
+        elif optimizer_idx == 1:
+            loss = self.get_dis_loss(recon_out, x, tag="dis")
+            
         print("loss = ", loss)
         
         
