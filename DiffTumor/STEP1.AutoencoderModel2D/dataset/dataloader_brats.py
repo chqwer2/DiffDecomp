@@ -156,13 +156,9 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         patch_size=(None, None, 1), 
         start_pos=(0, 0, 0)  # dynamic first two dimensions
     )
-    patch_transform = Compose(
-        [
-            SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
-            # Resized(keys=["img", "aux", "seg"], spatial_size=[48, 48]),
-            # to use crop/pad instead of resize:
-            # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
-        ])
+    patch_transform = Compose([
+        SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
+    ])
     
     if use_2D and args.phase == 'train':
         # data_dicts = [{'image': image, 'aux': aux, 'label': label} #, 'name': name}    
@@ -176,6 +172,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         loader = DataLoader(dataset_sf, batch_size=args.batch_size, 
                             num_workers=args.num_workers, 
                             pin_memory=torch.cuda.is_available())
+   
    
     elif args.phase == 'train':
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
