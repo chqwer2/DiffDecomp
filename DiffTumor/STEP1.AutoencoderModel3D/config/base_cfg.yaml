@@ -1,0 +1,3 @@
+defaults:
+  - dataset: brats 
+  - model:   two_branch    #vq_gan_3d 
