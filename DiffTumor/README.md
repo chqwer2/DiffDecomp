@@ -138,6 +138,7 @@ wget https://huggingface.co/MrGiovanni/DiffTumor/resolve/main/AutoencoderModel/A
 wget https://huggingface.co/MrGiovanni/DiffTumor/resolve/main/DiffusionModel/liver_early.pt
 wget https://huggingface.co/MrGiovanni/DiffTumor/resolve/main/DiffusionModel/liver_noearly.pt
 cd ../..
+
 ```
 Start training.
 ```bash

@@ -13,6 +13,8 @@ from torch.utils.data import Subset
 
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
 
+
+
 IMAGE_NII = "ct.nii.gz"
 
 
@@ -97,6 +99,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     
     data_path = args.data_root_path
     modality  = args.data_modality     # t2w, t1c, t1n, t2f
+    aux_modality = args.aux_modality  # flair
     
     train_transforms, val_transforms = get_transforms(args)
 
@@ -106,11 +109,14 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         # |--BraTS-GLI-00xxx-00x-seg.nii.gz
 
     seg_list = glob(os.path.join(data_path, '*/*seg.nii.gz'))
-    img_list = [seg.replace('seg.nii.gz', f'{modality}.nii.gz') for seg in seg_list]
+    
+    main_img_list = [seg.replace('seg.nii.gz', f'{modality}.nii.gz') for seg in seg_list]
+    aux_img_list  = [seg.replace('seg.nii.gz', f'{aux_modality}.nii.gz') for seg in seg_list]
+    
     patient_list = [os.path.basename(seg).replace('-seg.nii.gz', '') for seg in seg_list]
     
-    data_dicts = [{'image': image, 'label': label, 'name': name}    
-                    for image, label, name in zip(img_list, seg_list, patient_list)]
+    data_dicts = [{'image': image, 'aux': aux, 'label': label, 'name': name}    
+                    for image, aux, label, name in zip(main_img_list, aux_img_list, seg_list, patient_list)]
     
     if args.phase == 'train':   
         data_dicts = data_dicts[:int(splits[0] * len(data_dicts))]

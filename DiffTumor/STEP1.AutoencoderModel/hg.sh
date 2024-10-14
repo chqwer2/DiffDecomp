@@ -15,20 +15,38 @@
 #SBATCH --mail-type=ALL 
 #SBATCH --mail-user=zzhou82@asu.edu
 
-module load mamba/latest # only for Sol
+
+mamba activate MRI
+cd /home/hao/repo/DiffDecomp/DiffTumor
+git stash
+git pull
+
+
+# module load mamba/latest # only for Sol
 
 # mamba create -n difftumor python=3.9
-source activate difftumor
+# source activate difftumor
 # pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
 # pip install -r ../requirements.txt
 
-datapath=/scratch/zzhou82/data/AbdomenAtlas1.0Mini/
+
+datapath=/home/hao/data/medical/brats/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/
+data_modality="t1c"     # t2w, t1c, t1n, t2f
+aux_modality="t2w"  # flair
+
+
 cache_rate=0.001
 batch_size=8
 dataset_list="AbdomenAtlas1.0Mini"
 
 # single GPU
 gpu_num=1
-python train.py dataset.data_root_path=$datapath dataset.dataset_list=$dataset_list dataset.cache_rate=$cache_rate dataset.batch_size=$batch_size model.gpus=$gpu_num
+python train.py dataset.data_root_path=$datapath  \
+       dataset.data_modality=$data_modality dataset.aux_modality=$aux_modality \
+       dataset.dataset_list=$dataset_list \
+       dataset.cache_rate=$cache_rate \
+       dataset.batch_size=$batch_size \
+       model.gpus=$gpu_num
 
 # sbatch --error=logs/autoencoder_model.out --output=logs/autoencoder_model.out hg.sh
+# 

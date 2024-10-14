@@ -63,6 +63,7 @@ class VQGAN(pl.LightningModule):
                                  no_random_restart=cfg.model.no_random_restart, restart_thres=cfg.model.restart_thres)
 
         self.gan_feat_weight = cfg.model.gan_feat_weight
+        
         self.image_discriminator = NLayerDiscriminator(
             cfg.dataset.image_channels, cfg.model.disc_channels, cfg.model.disc_layers, norm_layer=nn.BatchNorm2d)
         self.video_discriminator = NLayerDiscriminator3D(
@@ -248,6 +249,7 @@ class VQGAN(pl.LightningModule):
         x = batch['image']
         x = x.permute(0,1,-1,-3,-2).detach()
         recon_loss, _, vq_output, perceptual_loss = self.forward(x)
+        
         self.log('val/recon_loss', recon_loss, prog_bar=True)
         self.log('val/perceptual_loss', perceptual_loss, prog_bar=True)
         self.log('val/perplexity', vq_output['perplexity'], prog_bar=True)

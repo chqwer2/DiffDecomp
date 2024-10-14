@@ -3,7 +3,8 @@ image_channels: 1
 
 dataset_list: 'Brats'
 data_root_path: /mnt/ccvl15/chongyu/
-data_modality: t1c
+data_modality: t2w 
+aux_modality:  t1c
 data_txt_path: cross_eval/recon/
 dist: False
 batch_size: 2

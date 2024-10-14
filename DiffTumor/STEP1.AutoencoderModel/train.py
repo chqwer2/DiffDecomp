@@ -5,6 +5,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 from torch.utils.data import DataLoader
 from vq_gan_3d.model import VQGAN
+from st_branch_model.model import TwoBranchModel
+
 from callbacks import ImageLogger, VideoLogger
 import hydra
 from omegaconf import DictConfig, open_dict
@@ -19,6 +21,7 @@ def get_parameter_number(model):
     trainable_num = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('Total', total_num/(1024*1024.0), 'Trainable', trainable_num/(1024*1024.0))
     return {'Total': total_num, 'Trainable': trainable_num}
+
 
 def get_callbacks(save_step):
     callbacks = []
