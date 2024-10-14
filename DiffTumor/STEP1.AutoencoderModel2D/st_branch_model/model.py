@@ -57,6 +57,7 @@ class TwoBranchModel(pl.LightningModule):
 
         self.perceptual_model = LPIPS().eval()
 
+        self.gan_feat_weight = args.model.gan_feat_weight
         self.image_gan_weight = args.model.image_gan_weight
         self.video_gan_weight = args.model.video_gan_weight
 
