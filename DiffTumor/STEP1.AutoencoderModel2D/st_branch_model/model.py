@@ -25,8 +25,9 @@ class SiLU(nn.Module):
     
     
 class ModelBackbone(nn.Module):
-    def __init__(self, args) -> None:
+    def __init__(self, args):
         super(ModelBackbone).__init__()
+        self.args = args
         num_every_group = args.model.base_num_every_group
         
         self.init_T2_frq_branch(args)
