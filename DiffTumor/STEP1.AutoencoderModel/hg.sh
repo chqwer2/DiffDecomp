@@ -16,19 +16,13 @@
 #SBATCH --mail-user=zzhou82@asu.edu
 
 
-mamba activate MRI
+mamba activate diffmri
 cd /home/hao/repo/DiffDecomp/DiffTumor
 git stash
 git pull
 
 
-# module load mamba/latest # only for Sol
-
-# mamba create -n difftumor python=3.9
-# source activate difftumor
-# pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
-# pip install -r ../requirements.txt
-
+cd STEP1.AutoencoderModel
 
 datapath=/home/hao/data/medical/brats/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/
 data_modality="t1c"     # t2w, t1c, t1n, t2f
