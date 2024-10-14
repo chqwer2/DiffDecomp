@@ -516,22 +516,16 @@ class TwoBranchModel(pl.LightningModule):
                     logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/logits_image_fake", logits_image_fake.mean().detach(),
                     logger=True, on_step=True, on_epoch=True)
-        # self.log(f"train/{tag}/logits_video_real", logits_video_real.mean().detach(),
-                    # logger=True, on_step=True, on_epoch=True)
-        # self.log(f"train/{tag}/logits_video_fake", logits_video_fake.mean().detach(),
-                    # logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/d_image_loss", d_image_loss,
                     logger=True, on_step=True, on_epoch=True)
-        # self.log(f"train/{tag}/d_video_loss", d_video_loss,
-                    # logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/discloss", discloss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
         return discloss
 
     
     def get_recon_loss(self, recon, target, tag="recon_out", use_dis=True):
-        # recon_loss = F.l1_loss(recon, target) * self.l1_weight
-        recon_loss = ((recon - target)**2).mean() * self.l1_weight
+        recon_loss = F.l1_loss(recon, target) * self.l1_weight
+        # recon_loss = ((recon - target)**2).mean() * self.l1_weight
         
         # Perceptual loss
         perceptual_loss = 0
@@ -580,12 +574,10 @@ class TwoBranchModel(pl.LightningModule):
                 self.log(f"train/{tag}/aeloss", aeloss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
                 
-                
         self.log(f"train/{tag}/perceptual_loss", perceptual_loss,
                     prog_bar=True, logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/recon_loss", recon_loss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
-
             
         return recon_loss
     
