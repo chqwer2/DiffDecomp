@@ -197,6 +197,7 @@ class FreBlock9(nn.Module):
         # print("x: ", x.shape)
         _, _, _, H, W = x.shape
         msF = torch.fft.rfft2(self.fpre(x)+1e-8, norm='backward')
+        # torch.fft.rff
 
         msF_amp = torch.abs(msF)
         msF_pha = torch.angle(msF)

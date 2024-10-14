@@ -667,7 +667,7 @@ class NLayerDiscriminator3D(nn.Module):
 
         kw = 4
         padw = int(np.ceil((kw-1.0)/2))
-        sequence = [[nn.Conv3d(input_nc, ndf, kernel_size=kw,
+        sequence = [[nn.Conv2D(input_nc, ndf, kernel_size=kw,
                                stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
 
         nf = ndf
@@ -675,19 +675,19 @@ class NLayerDiscriminator3D(nn.Module):
             nf_prev = nf
             nf = min(nf * 2, 512)
             sequence += [[
-                nn.Conv3d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
+                nn.Conv2D(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
                 norm_layer(nf), nn.LeakyReLU(0.2, True)
             ]]
 
         nf_prev = nf
         nf = min(nf * 2, 512)
         sequence += [[
-            nn.Conv3d(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
+            nn.Conv2D(nf_prev, nf, kernel_size=kw, stride=1, padding=padw),
             norm_layer(nf),
             nn.LeakyReLU(0.2, True)
         ]]
 
-        sequence += [[nn.Conv3d(nf, 1, kernel_size=kw,
+        sequence += [[nn.Conv2D(nf, 1, kernel_size=kw,
                                 stride=1, padding=padw)]]
 
         if use_sigmoid:

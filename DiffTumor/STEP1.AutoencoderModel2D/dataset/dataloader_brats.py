@@ -11,8 +11,12 @@ sys.path.append("..")
 
 from torch.utils.data import Subset
 
+from monai.transforms import (
+    Compose,
+    SqueezeDimd,
+)
+from monai.data import GridPatchDataset, PatchIterd
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
-
 
 
 IMAGE_NII = "ct.nii.gz"
@@ -144,6 +148,28 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         else:
             dataset = Dataset(data=data_dicts, transform=transform)
     
+    use_2D = True
+    # 2D slice
+    # define the 2d slice dataset using monai.data.PatchIterd and monai.data.GridPatchDataset
+    patch_func = PatchIterd(
+        keys=["img", "aux", "seg"], 
+        patch_size=(None, None, 1), 
+        start_pos=(0, 0, 0)  # dynamic first two dimensions
+    )
+    patch_transform = Compose(
+        [
+            SqueezeDimd(keys=["img", "aux", "seg"], dim=-1),  # squeeze the last dim
+            # Resized(keys=["img", "aux", "seg"], spatial_size=[48, 48]),
+            # to use crop/pad instead of resize:
+            # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
+        ])
+    
+    if use_2D:
+        dataset = GridPatchDataset(
+            data=data_dicts, patch_iter=patch_func, 
+            transform=patch_transform, with_coordinates=False
+        )
+
     
     # Dataloader
     if args.phase == 'train':

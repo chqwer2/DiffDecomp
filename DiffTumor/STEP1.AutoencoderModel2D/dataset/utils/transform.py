@@ -16,9 +16,12 @@ from monai.transforms import (
     Resized,
     SpatialPadd,
     apply_transform,
-    RandZoomd,
+    EnsureChannelFirstd,
+    RandZoomd, 
+    SqueezeDimd,
     RandCropByLabelClassesd,
 )
+import monai
 import numpy as np
 from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Hashable, List, Mapping, Optional, Sequence, Tuple, Union
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
@@ -220,6 +223,8 @@ def get_transforms(args):
                 prob=0.10,
                 max_k=3,
             ),
+            
+            EnsureChannelFirstd(keys=["img", "aux","seg"]),
             ToTensord(keys=["image", "aux", "label"]),
         ]
     )
@@ -259,6 +264,7 @@ def get_transforms(args):
             ToTensord(keys=["image", "aux", "label"]),
         ]
     )
+    
     return train_transforms, val_transforms
 
 

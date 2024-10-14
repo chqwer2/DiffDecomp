@@ -246,6 +246,7 @@ def get_transforms(args):
             ),
             SpatialPadd(keys=["image", "aux", "label"], spatial_size=(args.roi_x, args.roi_y, args.roi_z), 
                         mode='constant'),
+            
             RandCropByPosNegLabeld(
                 keys=["image", "aux", "label"],
                 label_key="label",
