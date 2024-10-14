@@ -155,7 +155,12 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
             dataset = Dataset(data=data_dicts, transform=transform)
     
     # check_data = monai.utils.misc.first(loader)
-      
+    loader = DataLoader(dataset, batch_size=1, shuffle=False, 
+                            num_workers=4, collate_fn=list_data_collate)
+    
+    check_data = monai.utils.misc.first(loader)
+    print("first full image shape: ", check_data["image"].shape, check_data["label"].shape)
+    
     use_2D = True  # Has some bugs to fix
     # 2D slice
     # patch_size: size of patches to generate slices for, 0/None selects whole dimension
@@ -168,7 +173,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     patch_transform = Compose(
         [
             # SqueezeDimd(keys=["img", "seg"], dim=-1),  # squeeze the last dim
-            Resized(keys=["image", "aux", "label"], spatial_size=[128, 128]),
+            Resized(keys=["image", "aux", "label"], spatial_size=[128, 128])
             # to use crop/pad instead of resize:
             # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
         ]
@@ -194,7 +199,7 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
                             num_workers=4, collate_fn=list_data_collate)
     
     check_data = monai.utils.misc.first(loader)
-    
+    print("first patch shape: ", check_data["image"].shape, check_data["label"].shape)
     
     return loader, transform  
     
