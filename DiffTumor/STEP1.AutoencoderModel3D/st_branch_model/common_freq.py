@@ -29,7 +29,7 @@ class invPixelShuffle(nn.Module):
         x = tensor.size(4)
         
         assert x % ratio == 0 and y % ratio == 0, 'x, y, ratio : {}, {}, {}'.format(x, y, ratio)
-        tensor = tensor.view(b, ch, d, y // ratio, ratio, x // ratio, ratio).permute(0, 1, 3, 5, 2, 4)
+        tensor = tensor.view(b, ch, d, y // ratio, ratio, x // ratio, ratio).permute(0, 1, 2, 4, 6, 3, 5)
         return tensor.contiguous().view(b, -1, d, y // ratio, x // ratio)
 
 
