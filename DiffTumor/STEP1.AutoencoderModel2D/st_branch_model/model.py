@@ -532,6 +532,10 @@ class TwoBranchModel(pl.LightningModule):
         
         # Perceptual loss
         perceptual_loss = 0
+        aeloss = 0
+        image_gan_feat_loss = 0
+        g_image_loss = 0
+        
         # Slice it into T, H, W random slices
         if self.perceptual_weight > 0:
             B, C, H, W = recon.shape
