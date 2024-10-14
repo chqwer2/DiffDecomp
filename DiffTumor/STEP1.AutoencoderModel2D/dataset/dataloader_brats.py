@@ -15,7 +15,7 @@ from monai.transforms import (
     Compose,
     SqueezeDimd,
 )
-from monai.data import GridPatchDataset, PatchIterd
+from monai.data import GridPatchDataset, PatchIterd, ShuffleBuffer
 from monai.data import DataLoader, Dataset, list_data_collate, DistributedSampler, CacheDataset
 
 
@@ -164,15 +164,17 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
             # ResizeWithPadOrCropd(keys=["img", "seg"], spatial_size=[48, 48], mode="replicate"),
         ])
     
-    if use_2D:
+    if use_2D and args.phase == 'train':
         dataset = GridPatchDataset(
             data=data_dicts, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
         )
+        dataset = ShuffleBuffer(dataset, buffer_size=30, seed=0)
+        loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, 
+                            pin_memory=torch.cuda.is_available())
 
-    
-    # Dataloader
-    if args.phase == 'train':
+   
+    elif args.phase == 'train':
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
         loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=(sampler is None), num_workers=args.num_workers, 
                                 collate_fn=list_data_collate, sampler=sampler)
