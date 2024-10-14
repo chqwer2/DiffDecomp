@@ -195,7 +195,7 @@ class FreBlock9(nn.Module):
 
     def forward(self, x):
         # print("x: ", x.shape)
-        _, _, H, W = x.shape
+        _, _, _, H, W = x.shape
         msF = torch.fft.rfft2(self.fpre(x)+1e-8, norm='backward')
 
         msF_amp = torch.abs(msF)
@@ -230,7 +230,7 @@ class Attention(nn.Module):
         self.project_out = nn.Conv3d(dim, dim, kernel_size=1, bias=bias)
 
     def forward(self, x, y):
-        b, c, h, w = x.shape
+        b, c, d, h, w = x.shape
 
         kv = self.kv_dwconv(self.kv(y))
         k, v = kv.chunk(2, dim=1)
