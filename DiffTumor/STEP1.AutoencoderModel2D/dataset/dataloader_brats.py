@@ -169,8 +169,8 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
             data=data_dicts, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
         )
-        dataset = ShuffleBuffer(dataset, buffer_size=30, seed=0)
-        loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, 
+        dataset_sf = ShuffleBuffer(dataset, buffer_size=30, seed=0)
+        loader = DataLoader(dataset_sf, batch_size=args.batch_size, num_workers=args.num_workers, 
                             pin_memory=torch.cuda.is_available())
 
    
