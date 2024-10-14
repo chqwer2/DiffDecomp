@@ -34,6 +34,7 @@ batch_size=8
 dataset_list="AbdomenAtlas1.0Mini"
 deviceid=1
 
+
 # single GPU
 gpu_num=1
 python train.py dataset.data_root_path=$datapath  \

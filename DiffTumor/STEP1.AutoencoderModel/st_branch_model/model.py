@@ -27,7 +27,7 @@ class TwoBranchModel(nn.Module):
         super(TwoBranchModel, self).__init__()
 
         num_group = 4
-        num_every_group = args.base_num_every_group
+        num_every_group = args.model.base_num_every_group
         self.args = args
 
         self.init_T2_frq_branch(args)
@@ -66,130 +66,130 @@ class TwoBranchModel(nn.Module):
 
     def init_T2_frq_branch(self, args):
         ### T2frequency branch
-        modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.num_features,
-                                            kernel_size=3, padding=1, act=args.act)]
+        modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
+                                            kernel_size=3, padding=1, act=args.model.act)]
         self.head_fre = nn.Sequential(*modules_head_fre)
 
-        modules_down1_fre = [common.DownSample(args.num_features, False, False),
-                            common.FreBlock9(args.num_features, args)
+        modules_down1_fre = [common.DownSample(args.model.num_features, False, False),
+                            common.FreBlock9(args.model.num_features, args)
                         ]
 
         self.down1_fre = nn.Sequential(*modules_down1_fre)
-        self.down1_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down1_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_down2_fre = [common.DownSample(args.num_features, False, False),
-                        common.FreBlock9(args.num_features, args)
+        modules_down2_fre = [common.DownSample(args.model.num_features, False, False),
+                        common.FreBlock9(args.model.num_features, args)
                         ]
         self.down2_fre = nn.Sequential(*modules_down2_fre)
 
-        self.down2_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down2_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_down3_fre = [common.DownSample(args.num_features, False, False),
-                        common.FreBlock9(args.num_features, args)
+        modules_down3_fre = [common.DownSample(args.model.num_features, False, False),
+                        common.FreBlock9(args.model.num_features, args)
                         ]
         self.down3_fre = nn.Sequential(*modules_down3_fre)
-        self.down3_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down3_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_neck_fre = [common.FreBlock9(args.num_features, args)
+        modules_neck_fre = [common.FreBlock9(args.model.num_features, args)
                         ]
         self.neck_fre = nn.Sequential(*modules_neck_fre)
-        self.neck_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.neck_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_up1_fre = [common.UpSampler(2, args.num_features),
-                        common.FreBlock9(args.num_features, args)
+        modules_up1_fre = [common.UpSampler(2, args.model.num_features),
+                        common.FreBlock9(args.model.num_features, args)
                         ]
         self.up1_fre = nn.Sequential(*modules_up1_fre)
-        self.up1_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.up1_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_up2_fre = [common.UpSampler(2, args.num_features),
-                    common.FreBlock9(args.num_features, args)
+        modules_up2_fre = [common.UpSampler(2, args.model.num_features),
+                    common.FreBlock9(args.model.num_features, args)
                         ]
         self.up2_fre = nn.Sequential(*modules_up2_fre)
-        self.up2_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.up2_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_up3_fre = [common.UpSampler(2, args.num_features),
-                    common.FreBlock9(args.num_features, args)
+        modules_up3_fre = [common.UpSampler(2, args.model.num_features),
+                    common.FreBlock9(args.model.num_features, args)
                         ]
         self.up3_fre = nn.Sequential(*modules_up3_fre)
-        self.up3_fre_mo = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.up3_fre_mo = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
         # define tail module
         modules_tail_fre = [
-            common.ConvBNReLU2D(args.num_features, out_channels=args.num_channels, kernel_size=3, padding=1,
-                        act=args.act)]
+            common.ConvBNReLU2D(args.model.num_features, out_channels=args.model.num_channels, kernel_size=3, padding=1,
+                        act=args.model.act)]
         self.tail_fre = nn.Sequential(*modules_tail_fre)
 
     def init_T2_spa_branch(self, args, num_every_group):
         ### spatial branch
-        modules_head = [common.ConvBNReLU2D(1, out_channels=args.num_features,
-                                            kernel_size=3, padding=1, act=args.act)]
+        modules_head = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
+                                            kernel_size=3, padding=1, act=args.model.act)]
         self.head = nn.Sequential(*modules_head)
 
-        modules_down1 = [common.DownSample(args.num_features, False, False),
+        modules_down1 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down1 = nn.Sequential(*modules_down1)
 
 
         self.down1_mo = nn.Sequential(common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_down2 = [common.DownSample(args.num_features, False, False),
+        modules_down2 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down2 = nn.Sequential(*modules_down2)
 
         self.down2_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_down3 = [common.DownSample(args.num_features, False, False),
+        modules_down3 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down3 = nn.Sequential(*modules_down3)
         self.down3_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
         modules_neck = [common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.neck = nn.Sequential(*modules_neck)
 
         self.neck_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_up1 = [common.UpSampler(2, args.num_features),
+        modules_up1 = [common.UpSampler(2, args.model.num_features),
                        common.ResidualGroup(
-                           args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                           args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.up1 = nn.Sequential(*modules_up1)
 
         self.up1_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_up2 = [common.UpSampler(2, args.num_features),
+        modules_up2 = [common.UpSampler(2, args.model.num_features),
                        common.ResidualGroup(
-                           args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                           args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.up2 = nn.Sequential(*modules_up2)
         self.up2_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
 
-        modules_up3 = [common.UpSampler(2, args.num_features),
+        modules_up3 = [common.UpSampler(2, args.model.num_features),
                        common.ResidualGroup(
-                           args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                           args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.up3 = nn.Sequential(*modules_up3)
         self.up3_mo = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
         # define tail module
         modules_tail = [
-            common.ConvBNReLU2D(args.num_features, out_channels=args.num_channels, kernel_size=3, padding=1,
-                         act=args.act)]
+            common.ConvBNReLU2D(args.model.num_features, out_channels=args.model.num_channels, kernel_size=3, padding=1,
+                         act=args.model.act)]
 
         self.tail = nn.Sequential(*modules_tail)
 
@@ -197,92 +197,92 @@ class TwoBranchModel(nn.Module):
         ### T2 frq & spa fusion part
         conv_fuse = []
         for i in range(14):
-            conv_fuse.append(common.FuseBlock7(args.num_features))
+            conv_fuse.append(common.FuseBlock7(args.model.num_features))
         self.conv_fuse = nn.Sequential(*conv_fuse)
 
     def init_T1_frq_branch(self, args):
         ### T2frequency branch
-        modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.num_features,
-                                            kernel_size=3, padding=1, act=args.act)]
+        modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
+                                            kernel_size=3, padding=1, act=args.model.act)]
         self.head_fre_T1 = nn.Sequential(*modules_head_fre)
 
-        modules_down1_fre = [common.DownSample(args.num_features, False, False),
-                            common.FreBlock9(args.num_features, args)
+        modules_down1_fre = [common.DownSample(args.model.num_features, False, False),
+                            common.FreBlock9(args.model.num_features, args)
                         ]
 
         self.down1_fre_T1 = nn.Sequential(*modules_down1_fre)
-        self.down1_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down1_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_down2_fre = [common.DownSample(args.num_features, False, False),
-                        common.FreBlock9(args.num_features, args)
+        modules_down2_fre = [common.DownSample(args.model.num_features, False, False),
+                        common.FreBlock9(args.model.num_features, args)
                         ]
         self.down2_fre_T1 = nn.Sequential(*modules_down2_fre)
 
-        self.down2_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down2_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_down3_fre = [common.DownSample(args.num_features, False, False),
-                        common.FreBlock9(args.num_features, args)
+        modules_down3_fre = [common.DownSample(args.model.num_features, False, False),
+                        common.FreBlock9(args.model.num_features, args)
                         ]
         self.down3_fre_T1 = nn.Sequential(*modules_down3_fre)
-        self.down3_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.down3_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
-        modules_neck_fre = [common.FreBlock9(args.num_features, args)
+        modules_neck_fre = [common.FreBlock9(args.model.num_features, args)
                         ]
         self.neck_fre_T1 = nn.Sequential(*modules_neck_fre)
-        self.neck_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.num_features, args))
+        self.neck_fre_mo_T1 = nn.Sequential(common.FreBlock9(args.model.num_features, args))
 
     def init_T1_spa_branch(self, args, num_every_group):
         ### spatial branch
-        modules_head = [common.ConvBNReLU2D(1, out_channels=args.num_features,
-                                            kernel_size=3, padding=1, act=args.act)]
+        modules_head = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
+                                            kernel_size=3, padding=1, act=args.model.act)]
         self.head_T1 = nn.Sequential(*modules_head)
 
-        modules_down1 = [common.DownSample(args.num_features, False, False),
+        modules_down1 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down1_T1 = nn.Sequential(*modules_down1)
 
 
         self.down1_mo_T1 = nn.Sequential(common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_down2 = [common.DownSample(args.num_features, False, False),
+        modules_down2 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down2_T1 = nn.Sequential(*modules_down2)
 
         self.down2_mo_T1 = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
-        modules_down3 = [common.DownSample(args.num_features, False, False),
+        modules_down3 = [common.DownSample(args.model.num_features, False, False),
                          common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.down3_T1 = nn.Sequential(*modules_down3)
         self.down3_mo_T1 = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
         modules_neck = [common.ResidualGroup(
-                             args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None)
+                             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None)
                          ]
         self.neck_T1 = nn.Sequential(*modules_neck)
 
         self.neck_mo_T1 = nn.Sequential(common.ResidualGroup(
-            args.num_features, 3, 4, act=args.act, n_resblocks=num_every_group, norm=None))
+            args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
     
     def init_modality_fre_fusion(self, args):
         conv_fuse = []
         for i in range(5):
-            conv_fuse.append(common.Modality_FuseBlock6(args.num_features))
+            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
         self.conv_fuse_fre = nn.Sequential(*conv_fuse)
 
     def init_modality_spa_fusion(self, args):
         conv_fuse = []
         for i in range(5):
-            conv_fuse.append(common.Modality_FuseBlock6(args.num_features))
+            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
         self.conv_fuse_spa = nn.Sequential(*conv_fuse)
 
     def forward(self, main, aux):
