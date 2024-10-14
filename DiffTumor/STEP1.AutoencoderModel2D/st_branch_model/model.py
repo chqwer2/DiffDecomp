@@ -495,7 +495,7 @@ class TwoBranchModel(pl.LightningModule):
     
 
     def get_dis_loss(self, recon, target, tag="dis"):
-        B, C, D, H, W = recon.shape
+        B, C, H, W = recon.shape
         # Selects one random 2D image from each 3D Image
             
         logits_image_real, _ = self.image_discriminator(target.detach())
