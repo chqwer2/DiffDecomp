@@ -42,7 +42,7 @@ class UpSampler(nn.Sequential):
 
         if (scale & (scale - 1)) == 0:  # Is scale = 2^n?
             for _ in range(int(math.log(scale, 2))):
-                m.append(nn.Conv3d(in_channels=n_feats, out_channels=4 * n_feats, kernel_size=kernel_size, stride=1,
+                m.append(nn.Conv2d(in_channels=n_feats, out_channels=4 * n_feats, kernel_size=kernel_size, stride=1,
                                    padding=kernel_size // 2))
                 m.append(nn.PixelShuffle(upscale_factor=2))
                 m.append(nn.PReLU())
@@ -62,7 +62,7 @@ class InvUpSampler(nn.Sequential):
         if (scale & (scale - 1)) == 0:  # Is scale = 2^n?
             for _ in range(int(math.log(scale, 2))):
                 m.append(invPixelShuffle(2))
-                m.append(nn.Conv3d(in_channels=n_feats * 4, out_channels=n_feats, kernel_size=kernel_size, stride=1,
+                m.append(nn.Conv2d(in_channels=n_feats * 4, out_channels=n_feats, kernel_size=kernel_size, stride=1,
                                    padding=kernel_size // 2))
                 m.append(nn.PReLU())
         super(InvUpSampler, self).__init__(*m)
@@ -87,7 +87,7 @@ class ConvBNReLU2D(torch.nn.Module):
                  bias=False, act=None, norm=None):
         super(ConvBNReLU2D, self).__init__()
 
-        self.layers = torch.nn.Conv3d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+        self.layers = torch.nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
                                       stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
         self.act = None
         self.norm = None
@@ -181,12 +181,12 @@ class FreBlock9(nn.Module):
     def __init__(self, channels, args):
         super(FreBlock9, self).__init__()
 
-        self.fpre = nn.Conv3d(channels, channels, 1, 1, 0)
-        self.amp_fuse = nn.Sequential(nn.Conv3d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
-                                      nn.Conv3d(channels, channels, 3, 1, 1))
-        self.pha_fuse = nn.Sequential(nn.Conv3d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
-                                      nn.Conv3d(channels, channels, 3, 1, 1))
-        self.post = nn.Conv3d(channels, channels, 1, 1, 0)
+        self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
+        self.amp_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
+                                      nn.Conv2d(channels, channels, 3, 1, 1))
+        self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
+                                      nn.Conv2d(channels, channels, 3, 1, 1))
+        self.post = nn.Conv2d(channels, channels, 1, 1, 0)
 
 
     def forward(self, x):
@@ -219,11 +219,11 @@ class Attention(nn.Module):
         self.num_heads = num_heads
         self.temperature = nn.Parameter(torch.ones(num_heads, 1, 1))
 
-        self.kv = nn.Conv3d(dim, dim * 2, kernel_size=1, bias=bias)
-        self.kv_dwconv = nn.Conv3d(dim * 2, dim * 2, kernel_size=3, stride=1, padding=1, groups=dim * 2, bias=bias)
-        self.q = nn.Conv3d(dim, dim , kernel_size=1, bias=bias)
-        self.q_dwconv = nn.Conv3d(dim, dim, kernel_size=3, stride=1, padding=1, groups=dim, bias=bias)
-        self.project_out = nn.Conv3d(dim, dim, kernel_size=1, bias=bias)
+        self.kv = nn.Conv2d(dim, dim * 2, kernel_size=1, bias=bias)
+        self.kv_dwconv = nn.Conv2d(dim * 2, dim * 2, kernel_size=3, stride=1, padding=1, groups=dim * 2, bias=bias)
+        self.q = nn.Conv2d(dim, dim , kernel_size=1, bias=bias)
+        self.q_dwconv = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=dim, bias=bias)
+        self.project_out = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
 
     def forward(self, x, y):
         b, c, h, w = x.shape
@@ -252,11 +252,11 @@ class Attention(nn.Module):
 class FuseBlock7(nn.Module):
     def __init__(self, channels):
         super(FuseBlock7, self).__init__()
-        self.fre = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.spa = nn.Conv3d(channels, channels, 3, 1, 1)
+        self.fre = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
         self.fre_att = Attention(dim=channels)
         self.spa_att = Attention(dim=channels)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
 
 
     def forward(self, spa, fre):
@@ -277,9 +277,9 @@ class FuseBlock7(nn.Module):
 class FuseBlock6(nn.Module):
     def __init__(self, channels):
         super(FuseBlock6, self).__init__()
-        self.fre = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.spa = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+        self.fre = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
 
 
     def forward(self, spa, fre):
@@ -299,9 +299,9 @@ class FuseBlock6(nn.Module):
 class FuseBlock4(nn.Module):
     def __init__(self, channels):
         super(FuseBlock4, self).__init__()
-        self.fre = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.spa = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, channels, 3, 1, 1))
+        self.fre = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, spa, fre):
         fre = self.fre(fre)
@@ -314,9 +314,9 @@ class FuseBlock4(nn.Module):
 class Modality_FuseBlock4(nn.Module):
     def __init__(self, channels):
         super(FuseBlock4, self).__init__()
-        self.t1 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.t2 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, channels, 3, 1, 1))
+        self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
@@ -329,11 +329,11 @@ class Modality_FuseBlock4(nn.Module):
 class Modality_FuseBlock7(nn.Module):
     def __init__(self, channels):
         super(Modality_FuseBlock7, self).__init__()
-        self.t1 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.t2 = nn.Conv3d(channels, channels, 3, 1, 1)
+        self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.t1_att = Attention(dim=channels)
         self.t2_att = Attention(dim=channels)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
 
 
     def forward(self, t1, t2):
@@ -353,9 +353,9 @@ class Modality_FuseBlock7(nn.Module):
 class Modality_FuseBlock6(nn.Module):
     def __init__(self, channels):
         super(Modality_FuseBlock6, self).__init__()
-        self.t1 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.t2 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+        self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
 
 
     def forward(self, t1, t2):
@@ -375,9 +375,9 @@ class Modality_FuseBlock6(nn.Module):
 class Modality_FuseBlock4(nn.Module):
     def __init__(self, channels):
         super(Modality_FuseBlock4, self).__init__()
-        self.t1 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.t2 = nn.Conv3d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv3d(2*channels, channels, 3, 1, 1), nn.Conv3d(channels, channels, 3, 1, 1))
+        self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
