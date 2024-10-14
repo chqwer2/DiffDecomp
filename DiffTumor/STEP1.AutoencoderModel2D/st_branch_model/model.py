@@ -23,15 +23,12 @@ class SiLU(nn.Module):
     def forward(self, x):
         return silu(x)
     
-
-class TwoBranchModel(pl.LightningModule):
-    def __init__(self, args):
-        super(TwoBranchModel, self).__init__()
-
-        num_group = 4
+    
+class ModelBackbone(nn.Module):
+    def __init__(self, args) -> None:
+        super(ModelBackbone).__init__()
         num_every_group = args.model.base_num_every_group
-        self.args = args
-
+        
         self.init_T2_frq_branch(args)
         self.init_T2_spa_branch(args, num_every_group)
         self.init_T2_fre_spa_fusion(args)
@@ -41,34 +38,9 @@ class TwoBranchModel(pl.LightningModule):
 
         self.init_modality_fre_fusion(args)
         self.init_modality_spa_fusion(args)
-        
-        self.image_discriminator = NLayerDiscriminator(
-            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm2d)
-        self.video_discriminator = NLayerDiscriminator3D(
-            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm3d)
-
-        self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
-        self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
-
-        if args.model.disc_loss_type == 'vanilla':
-                self.disc_loss = vanilla_d_loss
-        elif args.model.disc_loss_type == 'hinge':
-            self.disc_loss = hinge_d_loss
-
-        self.perceptual_model = LPIPS().eval()
-
-        self.gan_feat_weight = args.model.gan_feat_weight
-        self.image_gan_weight = args.model.image_gan_weight
-        self.video_gan_weight = args.model.video_gan_weight
-
-        self.perceptual_weight = args.model.perceptual_weight
-
-        self.l1_weight = args.model.l1_weight
-        self.save_hyperparameters()
-        
-
-    def init_T2_frq_branch(self, args):
-        ### T2frequency branch
+    
+        def init_T2_frq_branch(self, args):
+            ### T2frequency branch
         modules_head_fre = [common.ConvBNReLU2D(1, out_channels=args.model.num_features,
                                             kernel_size=3, padding=1, act=args.model.act)]
         self.head_fre = nn.Sequential(*modules_head_fre)
@@ -275,31 +247,80 @@ class TwoBranchModel(pl.LightningModule):
         self.neck_mo_T1 = nn.Sequential(common.ResidualGroup(
             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
+    def init_modality_fre_fusion(self, args):
+        conv_fuse = []
+        for i in range(5):
+            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
+        self.conv_fuse_fre = nn.Sequential(*conv_fuse)
+
+    def init_modality_spa_fusion(self, args):
+        conv_fuse = []
+        for i in range(5):
+            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
+        self.conv_fuse_spa = nn.Sequential(*conv_fuse)
+        
+        
+class TwoBranchModel(pl.LightningModule):
+    def __init__(self, args):
+        super(TwoBranchModel, self).__init__()
+
+        num_group = 4
+        
+        self.args = args
+
+        self.model = ModelBackbone(args)
+        
+        self.image_discriminator = NLayerDiscriminator(
+            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm2d)
+        self.video_discriminator = NLayerDiscriminator3D(
+            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm3d)
+
+        self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
+        self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
+
+        if args.model.disc_loss_type == 'vanilla':
+                self.disc_loss = vanilla_d_loss
+        elif args.model.disc_loss_type == 'hinge':
+            self.disc_loss = hinge_d_loss
+
+        self.perceptual_model = LPIPS().eval()
+
+        self.gan_feat_weight = args.model.gan_feat_weight
+        self.image_gan_weight = args.model.image_gan_weight
+        self.video_gan_weight = args.model.video_gan_weight
+
+        self.perceptual_weight = args.model.perceptual_weight
+
+        self.l1_weight = args.model.l1_weight
+        self.save_hyperparameters()
+        
+
+
     
     def configure_optimizers(self):
         lr = self.args.model.lr
         
-        net_module_set = [self.head_fre, self.down1_fre, self.down1_fre_mo, self.down2_fre, self.down2_fre_mo, self.down3_fre, self.down3_fre_mo, self.neck_fre, self.neck_fre_mo, self.up1_fre,
-                            self.up1_fre_mo,
-                            self.up2_fre, self.up2_fre_mo,
-                            self.up3_fre, self.up3_fre_mo, self.tail_fre,
+        # net_module_set = [self.head_fre, self.down1_fre, self.down1_fre_mo, self.down2_fre, self.down2_fre_mo, self.down3_fre, self.down3_fre_mo, self.neck_fre, self.neck_fre_mo, self.up1_fre,
+        #                     self.up1_fre_mo,
+        #                     self.up2_fre, self.up2_fre_mo,
+        #                     self.up3_fre, self.up3_fre_mo, self.tail_fre,
 
-                            self.head, self.down1, self.down2, self.down3,
-                            self.down1_mo, self.down2_mo, self.down3_mo, self.neck, self.neck_mo,
-                            self.up1, self.up2, self.up3, 
-                            self.up1_mo, self.up2_mo, self.up3_mo, 
-                            self.tail, 
+        #                     self.head, self.down1, self.down2, self.down3,
+        #                     self.down1_mo, self.down2_mo, self.down3_mo, self.neck, self.neck_mo,
+        #                     self.up1, self.up2, self.up3, 
+        #                     self.up1_mo, self.up2_mo, self.up3_mo, 
+        #                     self.tail, 
 
-                            self.conv_fuse,
+        #                     self.conv_fuse,
 
-                            self.head_fre_T1, self.down1_fre_T1, self.down1_fre_mo_T1, self.down2_fre_T1, self.down2_fre_mo_T1, self.down3_fre_T1, self.down3_fre_mo_T1, self.neck_fre_T1, self.neck_fre_mo_T1, 
+        #                     self.head_fre_T1, self.down1_fre_T1, self.down1_fre_mo_T1, self.down2_fre_T1, self.down2_fre_mo_T1, self.down3_fre_T1, self.down3_fre_mo_T1, self.neck_fre_T1, self.neck_fre_mo_T1, 
 
 
-                            self.head_T1, self.down1_T1, self.down2_T1, self.down3_T1,
-                            self.down1_mo_T1, self.down2_mo_T1, self.down3_mo_T1, self.neck_T1, self.neck_mo_T1]
-        params = []
-        for module in net_module_set:
-            params += list(module.parameters())
+        #                     self.head_T1, self.down1_T1, self.down2_T1, self.down3_T1,
+        #                     self.down1_mo_T1, self.down2_mo_T1, self.down3_mo_T1, self.neck_T1, self.neck_mo_T1]
+        params = [self.model.parameters()]
+        # for module in net_module_set:
+        #     params += list(module.parameters())
         
         opt_ae = torch.optim.Adam(params,
                                   lr=lr, betas=(0.5, 0.9))
@@ -320,140 +341,128 @@ class TwoBranchModel(pl.LightningModule):
             }
         return [opt_ae, opt_disc], [scheduler_ae, scheduler_disc]
     
-    
-    def init_modality_fre_fusion(self, args):
-        conv_fuse = []
-        for i in range(5):
-            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
-        self.conv_fuse_fre = nn.Sequential(*conv_fuse)
-
-    def init_modality_spa_fusion(self, args):
-        conv_fuse = []
-        for i in range(5):
-            conv_fuse.append(common.Modality_FuseBlock6(args.model.num_features))
-        self.conv_fuse_spa = nn.Sequential(*conv_fuse)
 
     def forward(self, main, aux):
         #### T1 fre encoder  # T1
-        t1_fre = self.head_fre_T1(aux) # 128
+        t1_fre = self.model.head_fre_T1(aux) # 128
 
-        down1_fre_t1 = self.down1_fre_T1(t1_fre)# 64
-        down1_fre_mo_t1 = self.down1_fre_mo_T1(down1_fre_t1)
+        down1_fre_t1 = self.model.down1_fre_T1(t1_fre)# 64
+        down1_fre_mo_t1 = self.model.down1_fre_mo_T1(down1_fre_t1)
 
-        down2_fre_t1 = self.down2_fre_T1(down1_fre_mo_t1) # 32
-        down2_fre_mo_t1 = self.down2_fre_mo_T1(down2_fre_t1)
+        down2_fre_t1 = self.model.down2_fre_T1(down1_fre_mo_t1) # 32
+        down2_fre_mo_t1 = self.model.down2_fre_mo_T1(down2_fre_t1)
 
-        down3_fre_t1 = self.down3_fre_T1(down2_fre_mo_t1) # 16
-        down3_fre_mo_t1 = self.down3_fre_mo_T1(down3_fre_t1)
+        down3_fre_t1 = self.model.down3_fre_T1(down2_fre_mo_t1) # 16
+        down3_fre_mo_t1 = self.model.down3_fre_mo_T1(down3_fre_t1)
 
-        neck_fre_t1 = self.neck_fre_T1(down3_fre_mo_t1) # 16
-        neck_fre_mo_t1 = self.neck_fre_mo_T1(neck_fre_t1)
+        neck_fre_t1 = self.model.neck_fre_T1(down3_fre_mo_t1) # 16
+        neck_fre_mo_t1 = self.model.neck_fre_mo_T1(neck_fre_t1)
 
 
         #### T2 fre encoder and T1 & T2 fre fusion
-        x_fre = self.head_fre(main) # 128
-        x_fre_fuse = self.conv_fuse_fre[0](t1_fre, x_fre)
+        x_fre = self.model.head_fre(main) # 128
+        x_fre_fuse = self.model.conv_fuse_fre[0](t1_fre, x_fre)
 
-        down1_fre = self.down1_fre(x_fre_fuse)# 64
-        down1_fre_mo = self.down1_fre_mo(down1_fre)
-        down1_fre_mo_fuse = self.conv_fuse_fre[1](down1_fre_mo_t1, down1_fre_mo)
+        down1_fre = self.model.down1_fre(x_fre_fuse)# 64
+        down1_fre_mo = self.model.down1_fre_mo(down1_fre)
+        down1_fre_mo_fuse = self.model.conv_fuse_fre[1](down1_fre_mo_t1, down1_fre_mo)
 
-        down2_fre = self.down2_fre(down1_fre_mo_fuse) # 32
-        down2_fre_mo = self.down2_fre_mo(down2_fre)
-        down2_fre_mo_fuse = self.conv_fuse_fre[2](down2_fre_mo_t1, down2_fre_mo)
+        down2_fre = self.model.down2_fre(down1_fre_mo_fuse) # 32
+        down2_fre_mo = self.model.down2_fre_mo(down2_fre)
+        down2_fre_mo_fuse = self.model.conv_fuse_fre[2](down2_fre_mo_t1, down2_fre_mo)
 
-        down3_fre = self.down3_fre(down2_fre_mo_fuse) # 16
-        down3_fre_mo = self.down3_fre_mo(down3_fre)
-        down3_fre_mo_fuse = self.conv_fuse_fre[3](down3_fre_mo_t1, down3_fre_mo)
+        down3_fre = self.model.down3_fre(down2_fre_mo_fuse) # 16
+        down3_fre_mo = self.model.down3_fre_mo(down3_fre)
+        down3_fre_mo_fuse = self.model.conv_fuse_fre[3](down3_fre_mo_t1, down3_fre_mo)
 
-        neck_fre = self.neck_fre(down3_fre_mo_fuse) # 16
-        neck_fre_mo = self.neck_fre_mo(neck_fre)
-        neck_fre_mo_fuse = self.conv_fuse_fre[4](neck_fre_mo_t1, neck_fre_mo)
+        neck_fre = self.model.neck_fre(down3_fre_mo_fuse) # 16
+        neck_fre_mo = self.model.neck_fre_mo(neck_fre)
+        neck_fre_mo_fuse = self.model.conv_fuse_fre[4](neck_fre_mo_t1, neck_fre_mo)
 
 
         #### T2 fre decoder
         neck_fre_mo = neck_fre_mo_fuse + down3_fre_mo_fuse
 
-        up1_fre = self.up1_fre(neck_fre_mo) # 32
-        up1_fre_mo = self.up1_fre_mo(up1_fre)
+        up1_fre = self.model.up1_fre(neck_fre_mo) # 32
+        up1_fre_mo = self.model.up1_fre_mo(up1_fre)
         up1_fre_mo = up1_fre_mo + down2_fre_mo_fuse
 
-        up2_fre = self.up2_fre(up1_fre_mo) # 64
-        up2_fre_mo = self.up2_fre_mo(up2_fre)
+        up2_fre = self.model.up2_fre(up1_fre_mo) # 64
+        up2_fre_mo = self.model.up2_fre_mo(up2_fre)
         up2_fre_mo = up2_fre_mo + down1_fre_mo_fuse
 
-        up3_fre = self.up3_fre(up2_fre_mo) # 128
-        up3_fre_mo = self.up3_fre_mo(up3_fre)
+        up3_fre = self.model.up3_fre(up2_fre_mo) # 128
+        up3_fre_mo = self.model.up3_fre_mo(up3_fre)
         up3_fre_mo = up3_fre_mo + x_fre_fuse
 
-        res_fre = self.tail_fre(up3_fre_mo)
+        res_fre = self.model.tail_fre(up3_fre_mo)
 
         #### T1 spa encoder
-        x_t1 = self.head_T1(aux)  # 128
+        x_t1 = self.model.head_T1(aux)  # 128
 
-        down1_t1 = self.down1_T1(x_t1) # 64
-        down1_mo_t1 = self.down1_mo_T1(down1_t1)
+        down1_t1 = self.model.down1_T1(x_t1) # 64
+        down1_mo_t1 = self.model.down1_mo_T1(down1_t1)
 
-        down2_t1 = self.down2_T1(down1_mo_t1) # 32
-        down2_mo_t1 = self.down2_mo_T1(down2_t1)  # 32
+        down2_t1 = self.model.down2_T1(down1_mo_t1) # 32
+        down2_mo_t1 = self.model.down2_mo_T1(down2_t1)  # 32
 
-        down3_t1 = self.down3_T1(down2_mo_t1) # 16
-        down3_mo_t1 = self.down3_mo_T1(down3_t1)  # 16
+        down3_t1 = self.model.down3_T1(down2_mo_t1) # 16
+        down3_mo_t1 = self.model.down3_mo_T1(down3_t1)  # 16
 
-        neck_t1 = self.neck_T1(down3_mo_t1) # 16
-        neck_mo_t1 = self.neck_mo_T1(neck_t1)
+        neck_t1 = self.model.neck_T1(down3_mo_t1) # 16
+        neck_mo_t1 = self.model.neck_mo_T1(neck_t1)
 
         #### T2 spa encoder and fusion
-        x = self.head(main)  # 128
+        x = self.model.head(main)  # 128
         
-        x_fuse = self.conv_fuse_spa[0](x_t1, x)
-        down1 = self.down1(x_fuse) # 64
-        down1_fuse = self.conv_fuse[0](down1_fre, down1)
-        down1_mo = self.down1_mo(down1_fuse)
-        down1_fuse_mo = self.conv_fuse[1](down1_fre_mo_fuse, down1_mo)
+        x_fuse = self.model.conv_fuse_spa[0](x_t1, x)
+        down1 = self.model.down1(x_fuse) # 64
+        down1_fuse = self.model.conv_fuse[0](down1_fre, down1)
+        down1_mo = self.model.down1_mo(down1_fuse)
+        down1_fuse_mo = self.model.conv_fuse[1](down1_fre_mo_fuse, down1_mo)
 
-        down1_fuse_mo_fuse = self.conv_fuse_spa[1](down1_mo_t1, down1_fuse_mo)
-        down2 = self.down2(down1_fuse_mo_fuse) # 32
-        down2_fuse = self.conv_fuse[2](down2_fre, down2)
-        down2_mo = self.down2_mo(down2_fuse)  # 32
-        down2_fuse_mo = self.conv_fuse[3](down2_fre_mo, down2_mo)
+        down1_fuse_mo_fuse = self.model.conv_fuse_spa[1](down1_mo_t1, down1_fuse_mo)
+        down2 = self.model.down2(down1_fuse_mo_fuse) # 32
+        down2_fuse = self.model.conv_fuse[2](down2_fre, down2)
+        down2_mo = self.model.down2_mo(down2_fuse)  # 32
+        down2_fuse_mo = self.model.conv_fuse[3](down2_fre_mo, down2_mo)
 
-        down2_fuse_mo_fuse = self.conv_fuse_spa[2](down2_mo_t1, down2_fuse_mo)
-        down3 = self.down3(down2_fuse_mo_fuse) # 16
-        down3_fuse = self.conv_fuse[4](down3_fre, down3)
-        down3_mo = self.down3_mo(down3_fuse)  # 16
-        down3_fuse_mo = self.conv_fuse[5](down3_fre_mo, down3_mo)
+        down2_fuse_mo_fuse = self.model.conv_fuse_spa[2](down2_mo_t1, down2_fuse_mo)
+        down3 = self.model.down3(down2_fuse_mo_fuse) # 16
+        down3_fuse = self.model.conv_fuse[4](down3_fre, down3)
+        down3_mo = self.model.down3_mo(down3_fuse)  # 16
+        down3_fuse_mo = self.model.conv_fuse[5](down3_fre_mo, down3_mo)
 
-        down3_fuse_mo_fuse = self.conv_fuse_spa[3](down3_mo_t1, down3_fuse_mo)
-        neck = self.neck(down3_fuse_mo_fuse) # 16
-        neck_fuse = self.conv_fuse[6](neck_fre, neck)
-        neck_mo = self.neck_mo(neck_fuse)
+        down3_fuse_mo_fuse = self.model.conv_fuse_spa[3](down3_mo_t1, down3_fuse_mo)
+        neck = self.model.neck(down3_fuse_mo_fuse) # 16
+        neck_fuse = self.model.conv_fuse[6](neck_fre, neck)
+        neck_mo = self.model.neck_mo(neck_fuse)
         neck_mo = neck_mo + down3_mo
-        neck_fuse_mo = self.conv_fuse[7](neck_fre_mo, neck_mo)
+        neck_fuse_mo = self.model.conv_fuse[7](neck_fre_mo, neck_mo)
 
-        neck_fuse_mo_fuse = self.conv_fuse_spa[4](neck_mo_t1, neck_fuse_mo)
+        neck_fuse_mo_fuse = self.model.conv_fuse_spa[4](neck_mo_t1, neck_fuse_mo)
         #### T2 spa decoder
-        up1 = self.up1(neck_fuse_mo_fuse) # 32
-        up1_fuse = self.conv_fuse[8](up1_fre, up1)
-        up1_mo = self.up1_mo(up1_fuse)
+        up1 = self.model.up1(neck_fuse_mo_fuse) # 32
+        up1_fuse = self.model.conv_fuse[8](up1_fre, up1)
+        up1_mo = self.model.up1_mo(up1_fuse)
         up1_mo = up1_mo + down2_mo
-        up1_fuse_mo = self.conv_fuse[9](up1_fre_mo, up1_mo)
+        up1_fuse_mo = self.model.conv_fuse[9](up1_fre_mo, up1_mo)
 
-        up2 = self.up2(up1_fuse_mo) # 64
-        up2_fuse = self.conv_fuse[10](up2_fre, up2)
-        up2_mo = self.up2_mo(up2_fuse)
+        up2 = self.model.up2(up1_fuse_mo) # 64
+        up2_fuse = self.model.conv_fuse[10](up2_fre, up2)
+        up2_mo = self.model.up2_mo(up2_fuse)
         up2_mo = up2_mo + down1_mo
-        up2_fuse_mo = self.conv_fuse[11](up2_fre_mo, up2_mo)
+        up2_fuse_mo = self.model.conv_fuse[11](up2_fre_mo, up2_mo)
 
-        up3 = self.up3(up2_fuse_mo) # 128
+        up3 = self.model.up3(up2_fuse_mo) # 128
 
-        up3_fuse = self.conv_fuse[12](up3_fre, up3)
-        up3_mo = self.up3_mo(up3_fuse)
+        up3_fuse = self.model.conv_fuse[12](up3_fre, up3)
+        up3_mo = self.model.up3_mo(up3_fuse)
 
         up3_mo = up3_mo + x
-        up3_fuse_mo = self.conv_fuse[13](up3_fre_mo, up3_mo)
+        up3_fuse_mo = self.model.conv_fuse[13](up3_fre_mo, up3_mo)
 
-        res = self.tail(up3_fuse_mo)
+        res = self.model.tail(up3_fuse_mo)
 
         return {'recon_out': res + main, 'recon_fre': res_fre + main}
     
@@ -470,7 +479,6 @@ class TwoBranchModel(pl.LightningModule):
         
 
         # torch.Size([8, 96, 96, 1])
-        # torch.Size([16, 1, 96, 96, 96])
         # torch.Size([16, 1, 96, 96, 96])
 
         x   = x.permute(0,   -1, -3, -2).detach()      # [B, C, H, W]    ?
@@ -507,10 +515,10 @@ class TwoBranchModel(pl.LightningModule):
 
         d_image_loss = self.disc_loss(logits_image_real, logits_image_fake)
         # d_video_loss = self.disc_loss(logits_video_real, logits_video_fake)
-        
         disc_factor = adopt_weight(
             self.global_step, threshold=self.args.model.discriminator_iter_start)
-        discloss = disc_factor * (self.image_gan_weight*d_image_loss )
+        discloss = disc_factor * \
+            (self.image_gan_weight*d_image_loss )
 
         self.log(f"train/{tag}/logits_image_real", logits_image_real.mean().detach(),
                     logger=True, on_step=True, on_epoch=True)
