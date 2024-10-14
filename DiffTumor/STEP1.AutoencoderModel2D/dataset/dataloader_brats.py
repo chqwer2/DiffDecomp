@@ -148,22 +148,22 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
         else:
             dataset = Dataset(data=data_dicts, transform=transform)
     
-    use_2D = False  # Has some bugs to fix
+    use_2D = True  # Has some bugs to fix
     # 2D slice
     # patch_size: size of patches to generate slices for, 0/None selects whole dimension
     patch_func = PatchIterd(
         keys=["image", "aux", "label"], 
-        patch_size=(None, None, 1), 
-        start_pos=(0, 0, 0)  # dynamic first two dimensions
+        patch_size=(None, None, None, 1), 
+        start_pos=(0, 0, 0, 0)  # dynamic first two dimensions
     )
-    patch_transform = Compose([
-        SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
-    ])
+    # patch_transform = Compose([
+    #     SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
+    # ])
     
     if use_2D and args.phase == 'train':
         dataset_2d = GridPatchDataset(
             data=dataset, patch_iter=patch_func, 
-            transform=patch_transform, with_coordinates=False
+            transform=None, with_coordinates=False
         )
         dataset_sf = ShuffleBuffer(dataset_2d, buffer_size=50, seed=0)
         loader = DataLoader(dataset_sf, batch_size=args.batch_size, 
