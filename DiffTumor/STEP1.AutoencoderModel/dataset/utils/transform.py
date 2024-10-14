@@ -223,11 +223,13 @@ def get_transforms(args):
             LoadImageh5d(keys=["image", "aux"]),
             AddChanneld(keys=["image", "aux", "label"]),
             Orientationd(keys=["image", "aux", "label"], axcodes="RAS"),
-            Spacingd(
-                keys=["image", "aux", "label"],
-                pixdim=(args.space_x, args.space_y, args.space_z),
-                mode=("bilinear", "nearest"),
-            ), 
+            
+            # ValueError: Sequence must have length 3, got 2.
+            # Spacingd(
+            #     keys=["image", "aux", "label"],
+            #     pixdim=(args.space_x, args.space_y, args.space_z),
+            #     mode=("bilinear", "nearest"),
+            # ), 
             ScaleIntensityRanged(
                 keys=["image", "aux"],
                 a_min=args.a_min,
