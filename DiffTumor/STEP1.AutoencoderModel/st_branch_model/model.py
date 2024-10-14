@@ -23,7 +23,7 @@ class SiLU(nn.Module):
     def forward(self, x):
         return silu(x)
     
-    
+
 class TwoBranchModel(pl.LightningModule):
     def __init__(self, args):
         super(TwoBranchModel, self).__init__()
@@ -274,6 +274,51 @@ class TwoBranchModel(pl.LightningModule):
         self.neck_mo_T1 = nn.Sequential(common.ResidualGroup(
             args.model.num_features, 3, 4, act=args.model.act, n_resblocks=num_every_group, norm=None))
 
+    
+    def configure_optimizers(self):
+        lr = self.cfg.model.lr
+        
+        net_module_set = [self.head_fre, self.down1_fre, self.down1_fre_mo, self.down2_fre, self.down2_fre_mo, self.down3_fre, self.down3_fre_mo, self.neck_fre, self.neck_fre_mo, self.up1_fre,
+                            self.up1_fre_mo,
+                            self.up2_fre, self.up2_fre_mo,
+                            self.up3_fre, self.up3_fre_mo, self.tail_fre,
+
+                            self.head, self.down1, self.down2, self.down3,
+                            self.down1_mo, self.down2_mo, self.down3_mo, self.neck, self.neck_mo,
+                            self.up1, self.up2, self.up3, 
+                            self.up1_mo, self.up2_mo, self.up3_mo, 
+                            self.tail, 
+
+                            self.conv_fuse,
+
+                            self.head_fre_T1, self.down1_fre_T1, self.down1_fre_mo_T1, self.down2_fre_T1, self.down2_fre_mo_T1, self.down3_fre_T1, self.down3_fre_mo_T1, self.neck_fre_T1, self.neck_fre_mo_T1, 
+
+
+                            self.head_T1, self.down1_T1, self.down2_T1, self.down3_T1,
+                            self.down1_mo_T1, self.down2_mo_T1, self.down3_mo_T1, self.neck_T1, self.neck_mo_T1]
+        params = []
+        for module in net_module_set:
+            params += list(module.parameters())
+        
+        opt_ae = torch.optim.Adam(params,
+                                  lr=lr, betas=(0.5, 0.9))
+        
+        opt_disc = torch.optim.Adam(list(self.image_discriminator.parameters()) +
+                                    list(self.video_discriminator.parameters()),
+                                    lr=lr, betas=(0.5, 0.9))
+        
+        scheduler_ae = {
+                'scheduler': torch.optim.lr_scheduler.MultiStepLR(opt_ae, milestones=[40000,50000,60000], gamma=0.1),
+                'interval': 'step',
+                'frequency': 1
+            }
+        scheduler_disc = {
+                'scheduler': torch.optim.lr_scheduler.MultiStepLR(opt_disc, milestones=[40000,50000,60000], gamma=0.1),
+                'interval': 'step',
+                'frequency': 1
+            }
+        return [opt_ae, opt_disc], [scheduler_ae, scheduler_disc]
+    
     
     def init_modality_fre_fusion(self, args):
         conv_fuse = []
