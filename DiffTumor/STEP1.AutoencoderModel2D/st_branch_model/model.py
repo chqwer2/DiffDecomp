@@ -281,7 +281,7 @@ class TwoBranchModel(pl.LightningModule):
         self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
 
         if args.model.disc_loss_type == 'vanilla':
-                self.disc_loss = vanilla_d_loss
+            self.disc_loss = vanilla_d_loss
         elif args.model.disc_loss_type == 'hinge':
             self.disc_loss = hinge_d_loss
 
@@ -473,8 +473,9 @@ class TwoBranchModel(pl.LightningModule):
             
         if optimizer_idx == 0:
             fft_weight = 0.01
-            recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out", use_dis=False)
-            recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre", use_dis=False)
+            use_dis = False
+            recon_out_loss = self.get_recon_loss(recon_out, x, tag="recon_out", use_dis=use_dis)
+            recon_fre_loss = self.get_recon_loss(recon_fre, x, tag="recon_fre", use_dis=use_dis)
             # amp = self.amploss(recon_fre, x)
             # pha = self.phaloss(recon_fre, x)
             loss = recon_out_loss + recon_fre_loss #+ fft_weight * ( amp + pha )
@@ -482,8 +483,7 @@ class TwoBranchModel(pl.LightningModule):
         elif optimizer_idx == 1:
             loss = self.get_dis_loss(recon_out, x, tag="dis")
             
-        print("loss = ", loss)
-        
+        # print("loss = ", loss)
         
         return loss
     
@@ -493,18 +493,18 @@ class TwoBranchModel(pl.LightningModule):
         # Selects one random 2D image from each 3D Image
             
         logits_image_real, _ = self.image_discriminator(target.detach())
-        # logits_video_real, _ = self.video_discriminator(target.detach())
-
         logits_image_fake, _ = self.image_discriminator(recon.detach())
         
+        # logits_video_real, _ = self.video_discriminator(target.detach())
         # logits_video_fake, _ = self.video_discriminator(recon.detach())
 
-        d_image_loss = self.disc_loss(logits_image_real, logits_image_fake)
+        d_image_loss = self.disc_loss(logits_image_real + 1, logits_image_fake + 1)
+        print("d_image_loss = ", d_image_loss)
+        
         # d_video_loss = self.disc_loss(logits_video_real, logits_video_fake)
         disc_factor = adopt_weight(
             self.global_step, threshold=self.args.model.discriminator_iter_start)
-        discloss = disc_factor * \
-            (self.image_gan_weight*d_image_loss )
+        discloss = disc_factor * (self.image_gan_weight * d_image_loss )
 
         self.log(f"train/{tag}/logits_image_real", logits_image_real.mean().detach(),
                     logger=True, on_step=True, on_epoch=True)
@@ -583,7 +583,7 @@ class NLayerDiscriminator(nn.Module):
         self.n_layers = n_layers
 
         kw = 4
-        padw = int(np.ceil((kw-1.0)/2))
+        padw = int(np.ceil((kw - 1.0)/2))
         sequence = [[nn.Conv2d(input_nc, ndf, kernel_size=kw,
                                stride=2, padding=padw), nn.LeakyReLU(0.2, True)]]
 
