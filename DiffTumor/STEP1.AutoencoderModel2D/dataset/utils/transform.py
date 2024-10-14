@@ -260,7 +260,7 @@ def get_transforms(args):
                 image_key="image",
                 image_threshold=-1,
             ),
-            SqueezeDimd(keys=["image", "aux", "label"], dim=0), 
+            # SqueezeDimd(keys=["image", "aux", "label"], dim=0), 
             ToTensord(keys=["image", "aux", "label"]),
         ]
     )

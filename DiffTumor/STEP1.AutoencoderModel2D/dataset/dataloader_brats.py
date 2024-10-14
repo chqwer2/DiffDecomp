@@ -137,15 +137,19 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     # ------------ Format dataset ------------  
     if args.cache_dataset:
         if args.uniform_sample and args.phase == 'train':
+            print(f'{args.phase} using UniformCacheDataset')
             dataset = UniformCacheDataset(data=data_dicts, transform=transform, 
                                                 cache_rate=args.cache_rate, datasetkey=args.datasetkey)
         else:
+            print(f'{args.phase} using CacheDataset')
             dataset = CacheDataset(data=data_dicts, transform=transform, cache_rate=args.cache_rate)
     else:
         if args.uniform_sample and args.phase == 'train':
+            print(f'{args.phase} using UniformDataset')
             dataset = UniformDataset(data=data_dicts, transform=transform, 
                                             datasetkey=args.datasetkey)
         else:
+            print(f'{args.phase} using Dataset')
             dataset = Dataset(data=data_dicts, transform=transform)
     
     use_2D = True  # Has some bugs to fix
@@ -153,8 +157,8 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
     # patch_size: size of patches to generate slices for, 0/None selects whole dimension
     patch_func = PatchIterd(
         keys=["image", "aux", "label"], 
-        patch_size=(None, None, None, 1), 
-        start_pos=(0, 0, 0, 0)  # dynamic first two dimensions
+        patch_size=(None, None, 1), 
+        start_pos=(0, 0, 0)  # dynamic first two dimensions
     )
     # patch_transform = Compose([
     #     SqueezeDimd(keys=["image", "aux", "label"], dim=-1),  # squeeze the last dim
