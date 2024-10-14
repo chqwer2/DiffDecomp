@@ -168,11 +168,10 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
             data=dataset, patch_iter=patch_func, 
             transform=patch_transform, with_coordinates=False
         )
-        dataset_sf = ShuffleBuffer(dataset_2d, buffer_size=30, seed=0)
+        dataset_sf = ShuffleBuffer(dataset_2d, buffer_size=50, seed=0)
         loader = DataLoader(dataset_sf, batch_size=args.batch_size, 
                             num_workers=args.num_workers, 
                             pin_memory=torch.cuda.is_available())
-   
    
     elif args.phase == 'train':
         sampler = DistributedSampler(dataset=dataset, even_divisible=True, shuffle=True) if args.dist else None
@@ -180,7 +179,8 @@ def get_loader(args, splits=[0.7, 0.1, 0.2]):
                                 collate_fn=list_data_collate, sampler=sampler)
         return loader, sampler, len(dataset)
     else:  
-        loader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn=list_data_collate)
+        loader = DataLoader(dataset, batch_size=1, shuffle=False, 
+                            num_workers=4, collate_fn=list_data_collate)
     
     check_data = monai.utils.misc.first(loader)
     
