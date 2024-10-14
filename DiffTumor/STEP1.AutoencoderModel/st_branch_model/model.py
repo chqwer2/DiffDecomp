@@ -276,7 +276,7 @@ class TwoBranchModel(pl.LightningModule):
 
     
     def configure_optimizers(self):
-        lr = self.cfg.model.lr
+        lr = self.args.model.lr
         
         net_module_set = [self.head_fre, self.down1_fre, self.down1_fre_mo, self.down2_fre, self.down2_fre_mo, self.down3_fre, self.down3_fre_mo, self.neck_fre, self.neck_fre_mo, self.up1_fre,
                             self.up1_fre_mo,
