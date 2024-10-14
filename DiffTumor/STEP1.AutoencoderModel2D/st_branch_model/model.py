@@ -573,16 +573,19 @@ class TwoBranchModel(pl.LightningModule):
                 gan_feat_loss = disc_factor * self.gan_feat_weight *  (image_gan_feat_loss)
                 recon_loss += gan_feat_loss + aeloss
             
-        self.log(f"train/{tag}/g_image_loss", g_image_loss,
+                self.log(f"train/{tag}/g_image_loss", g_image_loss,
+                            logger=True, on_step=True, on_epoch=True)
+                self.log(f"train/{tag}/image_gan_feat_loss", image_gan_feat_loss,
+                            logger=True, on_step=True, on_epoch=True)
+                self.log(f"train/{tag}/aeloss", aeloss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
-        self.log(f"train/{tag}/image_gan_feat_loss", image_gan_feat_loss,
-                    logger=True, on_step=True, on_epoch=True)
+                
+                
         self.log(f"train/{tag}/perceptual_loss", perceptual_loss,
                     prog_bar=True, logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/recon_loss", recon_loss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
-        self.log(f"train/{tag}/aeloss", aeloss, prog_bar=True,
-                    logger=True, on_step=True, on_epoch=True)
+
             
         return recon_loss
     
