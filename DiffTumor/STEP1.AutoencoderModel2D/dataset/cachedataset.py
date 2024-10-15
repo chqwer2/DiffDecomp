@@ -52,11 +52,12 @@ class PatchIterd:
             d = dict(data)  # A bug introduce two 
             original_spatial_shape = d[first(self.keys)].shape[1:]
             # Filter Zero Slices
-            print("original_spatial_shape", d[first(self.keys)].shape)  # original_spatial_shape torch.Size([128, 128, 96])
+            print("original_spatial_shape", d[first(self.keys)].shape) 
+            # original_spatial_shape torch.Size([128, 128, 96])
             print("original type:", d[first(self.keys)].type())
             
             # Bugs
-            filter = torch.any(torch.any(d[first(self.keys)], dim=1, keepdim=True), dim=2, keepdim=True)
+            filter = torch.any(torch.any(d[first(self.keys)][0], dim=0), dim=1)
             print("filter size:", filter.shape)
             
             for key in self.keys:
