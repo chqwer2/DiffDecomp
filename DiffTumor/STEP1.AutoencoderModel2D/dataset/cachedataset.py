@@ -51,21 +51,14 @@ class PatchIterd:
         for data in datas:
             d = dict(data)  # A bug introduce two 
             original_spatial_shape = d[first(self.keys)].shape[1:]
+            
             # Filter Zero Slices
-            print("original_spatial_shape", d[first(self.keys)].shape) 
-            # original_spatial_shape torch.Size([1, 128, 128, 96])
-            # original_spatial_shape torch.Size([128, 128, 96])
-            # print("original type:", d[first(self.keys)].type())
-            
-            # Bugs
             filter = torch.any(torch.any(d[first(self.keys)][0], dim=0), dim=0)
-            # print("filter size:", filter.shape)
-            
             for key in self.keys:
-                # print("key:", key)
                 d[key] = d[key][..., filter]
             original_spatial_shape = d[first(self.keys)].shape[1:]
-            print("new original_spatial_shape", original_spatial_shape)
+            
+            # print("new original_spatial_shape", original_spatial_shape)
             
             for patch in zip(*[self.patch_iter(d[key]) for key in self.keys]):
                 coords = patch[0][1]  # use the coordinate of the first item
