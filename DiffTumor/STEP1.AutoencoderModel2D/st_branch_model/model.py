@@ -310,8 +310,8 @@ class TwoBranchModel(pl.LightningModule):
         
         opt_ae = torch.optim.AdamW(params, lr=lr, betas=(0.5, 0.9))
         
-        opt_disc = torch.optim.AdamW(list(self.image_discriminator.parameters()) +
-                                    list(self.video_discriminator.parameters()),
+        opt_disc = torch.optim.AdamW(list(self.image_discriminator.parameters()),
+                                    # list(self.video_discriminator.parameters()),
                                     lr=lr, betas=(0.5, 0.9))
         
         scheduler_ae = {
