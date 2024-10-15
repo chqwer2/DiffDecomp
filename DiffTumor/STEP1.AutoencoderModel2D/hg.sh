@@ -1,4 +1,4 @@
-
+# 2D
 
 mamba activate diffmri
 cd /home/hao/repo/DiffDecomp/DiffTumor
