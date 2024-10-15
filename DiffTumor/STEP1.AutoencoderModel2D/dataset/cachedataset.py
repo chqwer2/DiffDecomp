@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import Callable, Dict, Hashable, Iterable, Mapping, Optional, Sequence, Union
 
 import numpy as np
+import torch
 
 from monai.config import KeysCollection
 from monai.data.dataset import Dataset
@@ -55,7 +56,8 @@ class PatchIterd:
             print("original type:", d[first(self.keys)].type())
             
             # Bugs
-            filter = np.any(np.any(d[first(self.keys)], axis=0), axis=0)
+            filter = torch.any(torch.any(d[first(self.keys)], dim=1, keepdim=True), dim=2, keepdim=True)
+            print("filter size:", filter.shape)
             
             for key in self.keys:
                 print("key:", key)
