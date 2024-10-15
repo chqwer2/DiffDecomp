@@ -273,9 +273,12 @@ class TwoBranchModel(pl.LightningModule):
         self.model = ModelBackbone(args)
         
         self.image_discriminator = NLayerDiscriminator(
-            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm2d)
-        self.video_discriminator = NLayerDiscriminator3D(
-            args.dataset.image_channels, args.model.disc_channels, args.model.disc_layers, norm_layer=nn.BatchNorm3d)
+            args.dataset.image_channels, args.model.disc_channels, 
+            args.model.disc_layers, norm_layer=nn.BatchNorm2d)
+        
+        # self.video_discriminator = NLayerDiscriminator3D(
+        #     args.dataset.image_channels, args.model.disc_channels, 
+        #     args.model.disc_layers, norm_layer=nn.BatchNorm3d)
 
         self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
         self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
@@ -495,11 +498,11 @@ class TwoBranchModel(pl.LightningModule):
         logits_image_real, _ = self.image_discriminator(target.detach())
         logits_image_fake, _ = self.image_discriminator(recon.detach())
         
-        # logits_video_real, _ = self.video_discriminator(target.detach())
-        # logits_video_fake, _ = self.video_discriminator(recon.detach())
-
-        d_image_loss = self.disc_loss(logits_image_real + 1, logits_image_fake + 1)
-        print("d_image_loss = ", d_image_loss)
+        print("logits_image_real = ", torch.mean(logits_image_real))
+        print("logits_image_fake = ", torch.mean(logits_image_fake))
+        
+        d_image_loss = self.disc_loss(logits_image_real , logits_image_fake)
+        # print("d_image_loss = ", d_image_loss)
         
         # d_video_loss = self.disc_loss(logits_video_real, logits_video_fake)
         disc_factor = adopt_weight(
@@ -512,7 +515,7 @@ class TwoBranchModel(pl.LightningModule):
                     logger=True, on_step=True, on_epoch=True)
         self.log(f"train/{tag}/d_image_loss", d_image_loss,
                     logger=True, on_step=True, on_epoch=True)
-        self.log(f"train/{tag}/discloss", discloss, prog_bar=True,
+        self.log(f"train/{tag}/disc_loss", discloss, prog_bar=True,
                     logger=True, on_step=True, on_epoch=True)
         return discloss
 

@@ -53,12 +53,10 @@ class PatchIterd:
             original_spatial_shape = d[first(self.keys)].shape[1:]
             
             # Filter Zero Slices
-            filter = torch.any(torch.any(d[first(self.keys)][0], dim=0), dim=0)
-            for key in self.keys:
-                d[key] = d[key][..., filter]
-            original_spatial_shape = d[first(self.keys)].shape[1:]
-            
-            # print("new original_spatial_shape", original_spatial_shape)
+            # filter = torch.any(torch.any(d[first(self.keys)][0], dim=0), dim=0)
+            # for key in self.keys:
+            #     d[key] = d[key][..., filter]
+            # original_spatial_shape = d[first(self.keys)].shape[1:]
             
             for patch in zip(*[self.patch_iter(d[key]) for key in self.keys]):
                 coords = patch[0][1]  # use the coordinate of the first item
