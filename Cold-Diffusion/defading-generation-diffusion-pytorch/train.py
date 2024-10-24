@@ -43,7 +43,7 @@ print(args)
 image_channels = 3
 
 
-diffusion_type = "twobranch_fade" # model_degradation      # fade | kspace
+diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
 model_name = diffusion_type.split("_")[0]   # unet | twobranch
 
 

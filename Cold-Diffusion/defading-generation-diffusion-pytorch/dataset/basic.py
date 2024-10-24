@@ -22,7 +22,7 @@ def get_basedir(data_dir):
 
 
 class BasicDataset(torch_data.Dataset):
-    def __init__(self, opt, fineSize, mode, transforms, base_dir, domains: list, pseudo = False, 
+    def __init__(self, fineSize, mode, transforms, base_dir, domains: list, pseudo = False, 
                  idx_pct = [0.7, 0.1, 0.2], tile_z_dim = 3, extern_norm_fn = None, 
                  LABEL_NAME=["bg", "fore"], debug=False, nclass=4, 
                  filter_non_labeled=False, use_diff_axis_view=False, chunksize=200):
