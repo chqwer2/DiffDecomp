@@ -458,7 +458,7 @@ class Trainer(object):
             self.ds = Dataset_Aug1(folder, image_size)
         elif dataset == 'brain':
             print(dataset, "Brain DA used")
-            self.ds = BrainDataset(folder, image_size, domains)
+            self.ds = BrainDataset("train", folder, image_size, domains)  # mode, base_dir, domains: 
         else:
             print(dataset)
             self.ds = Dataset(folder, image_size)

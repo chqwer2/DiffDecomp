@@ -86,7 +86,7 @@ elif model_name == "twobranch":
         gan_feat_weight, image_gan_weight,
         discriminator_iter_start,
         perceptual_weight, l1_weight, 
-        num_features, act, base_num_every_group
+        num_features, act, base_num_every_group, num_channels
     ).cuda()
 
 

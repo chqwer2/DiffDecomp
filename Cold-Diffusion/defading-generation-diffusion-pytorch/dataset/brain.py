@@ -17,7 +17,7 @@ LABEL_NAME = ["bg", "NCR", "ED", "ET"]
 
 
 class BrainDataset(BasicDataset):
-    def __init__(self, mode, base_dir, domains: list, **kwargs):
+    def __init__(self, mode, base_dir, image_size, nclass, domains, aux_modality, **kwargs):
         """
         Args:
             mode:               'train', 'val', 'test', 'test_all'
@@ -31,9 +31,9 @@ class BrainDataset(BasicDataset):
         super(BrainDataset, self).__init__(mode, 
                                            transforms, 
                                            base_dir, 
-                                           domains, 
-                                           fineSize=128,
-                                           debug=False, nclass=4, 
+                                           domains, aux_modality, 
+                                           fineSize=image_size,
+                                           debug=False, nclass=nclass, 
                                            LABEL_NAME=LABEL_NAME, 
                                            filter_non_labeled=True, 
                                            **kwargs)
@@ -48,69 +48,53 @@ class BrainDataset(BasicDataset):
         img = torch.from_numpy( img.copy() )
         return img
 
-    def perform_trans(self, img, mask, sam):
+    def perform_trans(self, img, mask, aux):
         
         T = self.albu_transform if self.is_train else self.test_resizer
-        buffer = T(image = img, mask=mask, mask2=sam)     # [0 - 255]
-        img, mask, sam = buffer['image'], buffer['mask'], buffer['mask2']
+        buffer = T(image = img, mask=mask, image2=aux)     # [0 - 255]
+        img, mask, aux = buffer['image'], buffer['mask'], buffer['image2']
         if len(mask.shape) == 2:
             mask = mask[..., None]
-        if len(sam.shape) == 2:
-            sam = sam[..., None]
         
         if self.is_train:
-            comp = np.concatenate( [ img, mask, sam ], axis = -1 )
-            if self.transforms:
-                img, mask, sam = self.transforms(comp, c_img = self.input_window, c_label = 1, c_sam = 1,
-                                          nclass = self.nclass, is_train = self.is_train, use_onehot = False)
+            # comp = np.concatenate( [ img, mask, aux ], axis = -1 )
+            # if self.transforms:
+            #     img, mask, aux = self.transforms(comp, c_img = self.input_window, c_label = 1, c_sam = self.input_window,
+            #                               nclass = self.nclass, is_train = self.is_train, use_onehot = False)
                 
-            img, mask, sam = self.get_patch_from_img(img, mask, sam, crop_size=self.crop_size)  # 192
+            img, mask, aux = self.get_patch_from_img(img, mask, aux, crop_size=self.crop_size)  # 192
         
-        return img, mask, sam
+        return img, mask, aux
 
-    def mask_sam(self, sam):
-        sam_mask = np.ones_like(sam)
-        if self.is_train is True:
-            num_patch = np.random.randint(1, 4)
-            for i in range(num_patch):
-                patch_size = np.random.randint(0.1 * sam.shape[-1], 0.5 * sam.shape[-1])
-                rnd_h = np.random.randint(0, np.maximum(0, sam.shape[-2] - patch_size))
-                rnd_w = np.random.randint(0, np.maximum(0, sam.shape[-1] - patch_size))
-                sam_mask[:,  rnd_h: rnd_h+patch_size, rnd_w:rnd_w+patch_size] = 0  # Mask out
-                
-        return sam_mask
-    
         
     def __getitem__(self, index):
         index = index % len(self.actual_dataset)
         curr_dict = self.actual_dataset[index]  # numpy
 
         # ----------------------- Extract Slice -----------------------
-        img, mask, sam  = curr_dict["img"], curr_dict["lb"], curr_dict["sam"]     # H, W, C, [0 - 255]
+        img, mask, aux  = curr_dict["img"], curr_dict["lb"], curr_dict["aux"]     # H, W, C, [0 - 255]
         domain, pid     = curr_dict["domain"], curr_dict["pid"]
         mean, std       = curr_dict['mean'], curr_dict['std']
 
         # max, min = img.max(), img.min()
         std    = 1 if std < 1e-3 else std
         
-        img = (img - mean) / std
-        
-        # print(f" ---- img shape {img.shape}, mask shape {mask.shape}, sam shape {sam.shape}")
-        
-        mask = mask[..., 0]  # [H, W]
-        sam  = sam[..., 0]
-        img, mask, sam = self.perform_trans(img, mask, sam)
-        img, mask, sam = map(lambda arr: self.hwc_to_chw(arr), [img, mask, sam])
+        # img = (img - mean) / std
+        img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
+        aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
+       
+       
+        mask = mask[..., 0] 
+        img, mask, aux = self.perform_trans(img, mask, aux)
+        img, mask, aux = map(lambda arr: self.hwc_to_chw(arr), [img, mask, aux])
 
-        img_minmax = (img - img.min()) / (img.max() - img.min()) 
 
-        sam_mask = self.mask_sam(sam)
 
         if self.tile_z_dim > 1 and self.input_window == 1: 
             img = img.repeat( [ self.tile_z_dim, 1, 1] )
             assert img.ndimension() == 3
 
-        data = {"img": img, "img_minmax": img_minmax, "lb": mask, "sam": sam, "sam_mask": sam_mask,
+        data = {"img": img, "lb": mask, "aux": aux, 
                 "is_start": curr_dict["is_start"], "is_end": curr_dict["is_end"], "nframe": np.int32(curr_dict["nframe"]),
                 "scan_id": curr_dict["scan_id"], "z_id": curr_dict["z_id"], "file_id": curr_dict["file_id"]
                 }

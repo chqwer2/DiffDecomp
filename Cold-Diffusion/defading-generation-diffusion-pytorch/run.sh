@@ -9,6 +9,10 @@ git pull
 
 
 datapath=/home/hao/data/medical/brats/ASNR-MICCAI-BraTS2023-GLI-Challenge-TrainingData/
+
+
+
+
 # data_modality="t1c"     # t2w, t1c, t1n, t2f
 # aux_modality="t2w"      # flair
 

@@ -22,7 +22,7 @@ def get_basedir(data_dir):
 
 
 class BasicDataset(torch_data.Dataset):
-    def __init__(self, fineSize, mode, transforms, base_dir, domains: list, pseudo = False, 
+    def __init__(self, fineSize, mode, transforms, base_dir, domains: list, aux_modality, pseudo = False, 
                  idx_pct = [0.7, 0.1, 0.2], tile_z_dim = 3, extern_norm_fn = None, 
                  LABEL_NAME=["bg", "fore"], debug=False, nclass=4, 
                  filter_non_labeled=False, use_diff_axis_view=False, chunksize=200):
@@ -42,6 +42,12 @@ class BasicDataset(torch_data.Dataset):
         self.is_train = True if mode == 'train' else False
         self.phase = mode
         self.domains = domains
+        
+        # Modality
+        self.main_modality = domains[0].split("_")[-1]
+        self.aux_modality = aux_modality.upper()
+        
+        
         self.pseudo = pseudo
         self.all_label_names = LABEL_NAME
         self.nclass = len(LABEL_NAME)
@@ -65,10 +71,13 @@ class BasicDataset(torch_data.Dataset):
                 self.img_pids[_domain] = sorted([ fid.split("-")[-2] for fid in
                                      glob.glob(self._base_dir + "/" + _domain + "/img/*.nii.gz") ],
                                      key = lambda x: int(x))
+                
+                
             else:
                 self.img_pids[_domain] = sorted([fid.split("_")[-1].split(".nii.gz")[0] for fid in
                                                  glob.glob(self._base_dir + "/" + _domain + "/img/*.nii.gz")],
                                                 key=lambda x: int(x))
+                
         self.scan_ids = self.__get_scanids(mode, idx_pct) # train val test split in terms of patient ids
         print(f'For {self.phase} on {[_dm for _dm in self.domains]} using scan ids len = ' + \
               f'{[len(self.scan_ids[_dm]) for _dm in self.scan_ids.keys()]}')
@@ -164,32 +173,25 @@ class BasicDataset(torch_data.Dataset):
                     else:
                         _lb_fid  = os.path.join(domain_dir, 'seg', f'{_domain[:-4]}-{curr_id}-000.nii.gz.npy')  # npy
 
-                    _sam_fid = os.path.join(domain_dir, 'seg', f'sam_{curr_id}.npy')
+                    _aux_fid = _img_fid.replace(self.main_modality, self.aux_modality)
 
-                else:
-                    _img_fid = os.path.join(domain_dir, 'img', f'img_{curr_id}.nii.gz')
-                    if not self.pseudo:
-                        _lb_fid = os.path.join(domain_dir, 'seg', f'seg_{curr_id}.nii.gz')
-                    else:
-                        _lb_fid = os.path.join(domain_dir, 'seg', f'pseudo_{curr_id}.nii.gz.npy')  # npy
-
-                    _sam_fid = os.path.join(domain_dir, 'seg', f'sam_{curr_id}.npy')
+                
 
                 curr_dict["img_fid"] = _img_fid
                 curr_dict["lbs_fid"] = _lb_fid
-                curr_dict["sam_fid"] = _sam_fid
+                curr_dict["aux_fid"] = _aux_fid
                 out_list[_domain][str(curr_id)] = curr_dict
 
         print("=== search sample num:", len(out_list))
         return out_list
     
     
-    def filter_with_label(self, img, lb, sam):
+    def filter_with_label(self, img, lb, aux):
         # H, W, C, filter zero
         if self.phase == "train":
         
             filter = np.any(np.any(img, axis=0), axis=0)
-            img, lb, sam = img[..., filter], lb[..., filter], sam[..., filter]
+            img, lb, aux = img[..., filter], lb[..., filter], aux[..., filter]
 
             
             if self.filter_non_labeled:
@@ -206,18 +208,10 @@ class BasicDataset(torch_data.Dataset):
                 filter = filter + filter_right + filter_left
                 filter = filter > 0
                 
-                # print("=== filter non-labeled slices = ", filter.sum())
-                # pattern = [0, 0, 0, 0, 1]
-                # repeated_pattern = pattern * 100
-    
-                # rev_filter = (1 - filter) * repeated_pattern[:filter.shape[0]]
-                # filter = np.clip(filter + rev_filter, 0, 1)
-                # print("=== then slices = ", filter.sum())
-                
                 # HWC
-                img, lb, sam = img[..., filter], lb[..., filter], sam[..., filter]
+                img, lb, aux = img[..., filter], lb[..., filter], aux[..., filter]
                 
-        return img, lb, sam
+        return img, lb, aux
 
     def __read_dataset(self, chunk, status):
         """
@@ -287,25 +281,25 @@ class BasicDataset(torch_data.Dataset):
                 lb = lb_original.copy()
 
                 # -> H, W, C
-                img, lb = map(lambda arr: np.transpose(arr, (1, 2, 0)), [img, lb, sam])
+                img, lb, aux = map(lambda arr: np.transpose(arr, (1, 2, 0)), [img, lb, aux])
                 assert img.shape[-1] == lb.shape[-1], f"ASSERT {img.shape} = {lb.shape}"
 
                 # Resize:
                 if img.shape[1] != self.fineSize:
                     # H, W, C
-                    res = self.resizer(image=img, mask=lb, mask2=sam)
-                    img, lb = res['image'], res['mask'], res['mask2']
+                    res = self.resizer(image=img, mask=lb, image2=aux)
+                    img, lb = res['image'], res['mask'], res['image2']
 
                 prt_cache = f" {_domain} stat ({domain_ids}/{len(_curr_chunk)}): shape={img.shape}, max={img.max()}, min={img.min()}"
 
                 # Filter vacant slices
                 filter = np.any(np.any(img, axis=0), axis=0)
-                img, lb, sam = img[..., filter], lb[..., filter], sam[..., filter]
+                img, lb, aux = img[..., filter], lb[..., filter], aux[..., filter]
             
-                img, lb, sam = self.filter_with_label(img, lb, sam)
+                img, lb, aux = self.filter_with_label(img, lb, aux)
 
                 out_list, glb_idx = self.add_to_list(glb_idx, out_list, img, lb,
-                                                     sam, mean, std, _domain,
+                                                     aux, mean, std, _domain,
                                                      scan_id, itm["img_fid"])
 
                 if (domain_ids) % (len(_curr_chunk) // 2) == 0:
@@ -315,19 +309,19 @@ class BasicDataset(torch_data.Dataset):
                 # Add various axis view !!!
                 if self.phase == "train" and self.use_diff_axis_view:
                     # C, W, H
-                    img, lb, sam = img_original, lb_original, sam_original
+                    img, lb, aux = img_original, lb_original, aux_original
                     # Resize:
                     if img.shape[1] != self.fineSize:
-                        res = self.resizer(image=img, mask=lb, mask2=sam) # assume H, W, (C)<-
-                        img, lb, sam = res['image'], res['mask'], res['mask2']
+                        res = self.resizer(image=img, mask=lb, image2=aux) # assume H, W, (C)<-
+                        img, lb, aux = res['image'], res['mask'], res['image2']
                     
-                    img, lb, sam = self.filter_with_label(img, lb, sam)
+                    img, lb, aux = self.filter_with_label(img, lb, aux)
                     
                     out_list, glb_idx = self.add_to_list(glb_idx, out_list, img, lb,
-                                                     sam, mean, std, _domain,
+                                                     aux, mean, std, _domain,
                                                      scan_id, itm["img_fid"])
 
-                del img, lb, sam, img_original, lb_original, sam_original
+                del img, lb, aux, img_original, lb_original, aux_original
 
         del self.actual_dataset
         return out_list
@@ -374,7 +368,7 @@ class BasicDataset(torch_data.Dataset):
         return self.current_chunk, status
 
 
-    def add_to_list(self, glb_idx, out_list, img, lb, sam, mean, std, _domain, scan_id, file_id):
+    def add_to_list(self, glb_idx, out_list, img, lb, aux, mean, std, _domain, scan_id, file_id):
         # now start writing everthing in
         c = 3
         
@@ -406,23 +400,16 @@ class BasicDataset(torch_data.Dataset):
                     _img = img[..., ii: ii+ 1].copy()
             
             _lb  = lb[..., ii: ii + 1]
-            _sam = sam[..., ii: ii + 1]
+            _aux = aux[..., ii: ii + 1]
             
             out_list.append(
-                       {"img": _img, "lb":_lb, "sam":_sam, "size": img.shape[-1],
+                       {"img": _img, "lb":_lb, "aux":_aux, "size": img.shape[-1],
                         "mean":mean, "std":std,
                         "is_start": is_start, "is_end": is_end,
                         "domain": _domain, "nframe": img.shape[-1],
                         "scan_id": _domain + "_" + scan_id,
                         "pid": scan_id, "file_id": file_id, "z_id":ii})
             glb_idx += 1
-
-        # if self.fake_interpolate and _domain == "CHAOST2"  and self.is_train:    #
-        #     middle_img = img[..., ii - 1: ii].copy() / 2 + img[..., ii: ii + 1].copy() /2
-        #     middle_lb  = np.maximum(lb[..., ii - 1: ii], lb[..., ii: ii + 1])
-            
-        #     middle_sam = sam[..., ii - 1: ii] + sam[..., ii: ii + 1]
-        #     middle_sam = np.clip(middle_sam, 0, 1)     
         
         return out_list, glb_idx
 
