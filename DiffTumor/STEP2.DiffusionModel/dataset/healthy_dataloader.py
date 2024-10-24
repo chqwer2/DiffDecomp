@@ -299,16 +299,7 @@ def get_loader(args):
                 clip=True,
             ),
             CropForegroundd(keys=["image", "label"], source_key="image"),
-            # RandCropByPosNegLabeld_select(
-            #     keys=["image", "label"],
-            #     label_key="label",
-            #     spatial_size=(args.roi_x, args.roi_y, args.roi_z), #192, 192, 64
-            #     pos=2,
-            #     neg=1,
-            #     num_samples=args.num_samples,
-            #     image_key="image",
-            #     image_threshold=0,
-            # ),
+
             RandCropByLabelClassesd_select(
                 keys=["image", "label"],
                 label_key="label",

@@ -33,7 +33,7 @@ def run(cfg: DictConfig):
         num_frames=cfg.model.diffusion_depth_size,
         channels=cfg.model.diffusion_num_channels,
         timesteps=cfg.model.timesteps,
-        loss_type=cfg.model.loss_type,
+        loss_type=cfg.model.loss_ty1pe,
     ).cuda()
 
     train_dataloader, train_sampler, dataset_size = get_loader(cfg.dataset)
