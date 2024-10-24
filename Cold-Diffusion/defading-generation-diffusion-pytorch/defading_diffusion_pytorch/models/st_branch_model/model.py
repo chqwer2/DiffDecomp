@@ -26,11 +26,12 @@ class SiLU(nn.Module):
     
     
 class ModelBackbone(nn.Module):
-    def __init__(self, num_features, act, base_num_every_group):
+    def __init__(self, num_features, act, base_num_every_group, num_channels):
         super(ModelBackbone, self).__init__()
         
         self.num_features = num_features
         self.act = act
+        self.num_channels = num_channels
         
         # self.args = args
         num_every_group = base_num_every_group
@@ -272,13 +273,13 @@ class TwoBranchModel(pl.LightningModule):
                  gan_feat_weight, image_gan_weight,
                  discriminator_iter_start,
                  perceptual_weight, l1_weight, 
-                 num_features, act, base_num_every_group):
+                 num_features, act, base_num_every_group, num_channels):
         super(TwoBranchModel, self).__init__()
 
         num_group = 4
         # lr = self.lr
         
-        self.model = ModelBackbone(num_features, act, base_num_every_group)
+        self.model = ModelBackbone(num_features, act, base_num_every_group, num_channels)
         
         self.image_discriminator = NLayerDiscriminator(
             image_channels, disc_channels, disc_layers, 

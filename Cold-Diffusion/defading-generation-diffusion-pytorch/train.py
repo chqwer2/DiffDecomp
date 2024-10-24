@@ -40,7 +40,7 @@ parser.add_argument('--reverse', action="store_true")
 args = parser.parse_args()
 print(args)
 
-image_channels = 3
+image_channels = 1
 
 
 diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
@@ -75,9 +75,9 @@ elif model_name == "twobranch":
     num_groups = 32
     
     base_num_every_group = 2
-    num_features = "64"
+    num_features = 64
     act = "PReLU"
-    # num_channels = 1
+    num_channels = 1
 
 
     model = TwoBranchModel(
