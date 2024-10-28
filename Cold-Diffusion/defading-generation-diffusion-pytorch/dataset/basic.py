@@ -54,7 +54,7 @@ class BasicDataset(torch_data.Dataset):
         self.tile_z_dim = tile_z_dim
         self._base_dir = base_dir
         self.idx_pct = idx_pct
-        self.albu_transform = get_albu_transforms()
+        self.albu_transform = get_albu_transforms((fineSize, fineSize))
         self.test_resizer   = get_resize_transforms((fineSize, fineSize))
         self.fake_interpolate    = True # True
         self.use_diff_axis_view  = use_diff_axis_view
@@ -71,7 +71,6 @@ class BasicDataset(torch_data.Dataset):
                 self.img_pids[_domain] = sorted([ fid.split("-")[-2] for fid in
                                      glob.glob(self._base_dir + "/" + _domain + "/img/*.nii.gz") ],
                                      key = lambda x: int(x))
-                
                 
             else:
                 self.img_pids[_domain] = sorted([fid.split("_")[-1].split(".nii.gz")[0] for fid in

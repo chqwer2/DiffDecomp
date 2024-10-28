@@ -14,10 +14,6 @@ domain=BraTS-GLI-T1C
 aux_modality=T2F         # T1C, T1N, T2W, T2F
 
 
-# data_modality="t1c"     # t2w, t1c, t1n, t2f
-# aux_modality="t2w"      # flair
-
-
 python  train.py --time_steps 50 --train_steps 700000 \
             --save_folder ./results_cifar10 \
             --data_path $datapath --dataset $dataset \

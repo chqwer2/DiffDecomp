@@ -449,6 +449,8 @@ class Trainer(object):
         self.step_start_ema = step_start_ema
         self.save_and_sample_every = save_and_sample_every
 
+
+        
         self.batch_size = train_batch_size
         self.image_size = image_size
         self.gradient_accumulate_every = gradient_accumulate_every
@@ -457,9 +459,10 @@ class Trainer(object):
         if dataset == 'train':
             print(dataset, "DA used")
             self.ds = Dataset_Aug1(folder, image_size)
-        elif dataset == 'brain':
+        elif dataset.lower() == 'brain':
             print(dataset, "Brain DA used")
             # mode, base_dir, image_size, nclass, domains, aux_modality,
+            #  mode, base_dir, image_size, nclass, domains, aux_modality,
             self.ds = BrainDataset("train", folder, image_size, 4, 
                                    domains=domain, aux_modality=aux_modality)  # mode, base_dir, domains: 
         else:

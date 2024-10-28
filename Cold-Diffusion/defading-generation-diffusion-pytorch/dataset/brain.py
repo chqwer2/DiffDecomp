@@ -27,12 +27,11 @@ class BrainDataset(BasicDataset):
         """
         self.dataset_key = "brain"
         transforms = get_albu_transforms(mode)
-        
-        super(BrainDataset, self).__init__(mode, 
+
+        super(BrainDataset, self).__init__(image_size, mode, 
                                            transforms, 
                                            base_dir, 
                                            domains, aux_modality, 
-                                           fineSize=image_size,
                                            debug=False, nclass=nclass, 
                                            LABEL_NAME=LABEL_NAME, 
                                            filter_non_labeled=True, 
@@ -57,11 +56,6 @@ class BrainDataset(BasicDataset):
             mask = mask[..., None]
         
         if self.is_train:
-            # comp = np.concatenate( [ img, mask, aux ], axis = -1 )
-            # if self.transforms:
-            #     img, mask, aux = self.transforms(comp, c_img = self.input_window, c_label = 1, c_sam = self.input_window,
-            #                               nclass = self.nclass, is_train = self.is_train, use_onehot = False)
-                
             img, mask, aux = self.get_patch_from_img(img, mask, aux, crop_size=self.crop_size)  # 192
         
         return img, mask, aux
