@@ -37,6 +37,11 @@ parser.add_argument('--initial_mask', default=11, type=int)
 parser.add_argument('--kernel_std', default=0.15, type=float)
 parser.add_argument('--reverse', action="store_true")
 
+parser.add_argument('--dataset', default='brain', type=str)
+parser.add_argument('--domain', default=None, type=str)
+parser.add_argument('--aux_modality', default=None, type=str)
+
+
 args = parser.parse_args()
 print(args)
 
@@ -123,7 +128,9 @@ trainer = Trainer(
     fp16 = False,                       # turn on mixed precision training with apex
     results_folder = args.save_folder,
     load_path = args.load_path,
-    dataset = 'train'
+    dataset = args.dataset,
+    domain = args.domain,
+    aux_modality = args.aux_modality
 )
 
 trainer.train()

@@ -436,7 +436,8 @@ class Trainer(object):
         load_path = None,
         dataset = None,
         shuffle=True,
-        domains=['A', 'B']
+        domain=None,
+        aux_modality=None
 
     ):
         super().__init__()
@@ -458,7 +459,9 @@ class Trainer(object):
             self.ds = Dataset_Aug1(folder, image_size)
         elif dataset == 'brain':
             print(dataset, "Brain DA used")
-            self.ds = BrainDataset("train", folder, image_size, domains)  # mode, base_dir, domains: 
+            # mode, base_dir, image_size, nclass, domains, aux_modality,
+            self.ds = BrainDataset("train", folder, image_size, 4, 
+                                   domains=domain, aux_modality=aux_modality)  # mode, base_dir, domains: 
         else:
             print(dataset)
             self.ds = Dataset(folder, image_size)
