@@ -49,7 +49,7 @@ def get_albu_transforms(img_size = (192, 192)):
                             rotate_limit=30, p=0.5),
         
         # A.Defocus(radius=(4, 8), alias_blur=(0.2, 0.4), p=0.5),
-        A.GaussNoise(var_limit=(10.0, 25.0), p=0.5),
+        # A.GaussNoise(var_limit=(10.0, 25.0), p=0.5),
         
         # A.GaussianBlur(blur_limit=(3, 7), p=0.5),
         # A.Emboss(alpha=(0.5, 1.0), strength=(0.5, 1.0), p=0.5),  # Added
@@ -69,19 +69,19 @@ def get_albu_transforms(img_size = (192, 192)):
         # ], p=0.5),
         
         # A.Saturation
-        A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, val_shift_limit=5, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
-                                    contrast_limit=(-0.1, 0.1), p=0.5),
+        # A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, val_shift_limit=5, p=0.5),
+        # A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1), 
+                                    # contrast_limit=(-0.1, 0.1), p=0.5),
         # A.MaskDropout(p=0.5),
         # A.RandomSunFlare(flare_roi=(0, 0, 1, 0.5), p=0.3),  
         
-        A.OneOf([
-            A.GridDistortion(num_steps=5, distort_limit=0.2, p=1.0), 
-            A.ElasticTransform(alpha=1, sigma=5, alpha_affine=5, p=1.0)
-        ], p=0.5),
+        # A.OneOf([
+            # A.GridDistortion(num_steps=5, distort_limit=0.2, p=1.0), 
+            # A.ElasticTransform(alpha=1, sigma=5, alpha_affine=5, p=1.0)
+        # ], p=0.5),
         
-        A.CoarseDropout(max_holes=5, max_height=img_size[0] // 20, max_width=img_size[1] // 20,
-                        min_holes=1, fill_value=0, mask_fill_value=0, p=0.5),
+        # A.CoarseDropout(max_holes=5, max_height=img_size[0] // 20, max_width=img_size[1] // 20,
+                        # min_holes=1, fill_value=0, mask_fill_value=0, p=0.5),
 
     ], p=1.0, additional_targets={'image2': 'image', "mask2": "mask"})
 

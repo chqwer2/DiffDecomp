@@ -152,7 +152,6 @@ class Unet(nn.Module):
         else:
             time_dim = None
             self.time_mlp = None
-
         self.downs = nn.ModuleList([])
         self.ups = nn.ModuleList([])
         num_resolutions = len(in_out)

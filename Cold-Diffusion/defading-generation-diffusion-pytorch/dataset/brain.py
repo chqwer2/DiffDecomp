@@ -17,7 +17,8 @@ LABEL_NAME = ["bg", "NCR", "ED", "ET"]
 
 
 class BrainDataset(BasicDataset):
-    def __init__(self, mode, base_dir, image_size, nclass, domains, aux_modality, **kwargs):
+    def __init__(self, mode, base_dir, image_size, 
+                 nclass, domains, aux_modality, **kwargs):
         """
         Args:
             mode:               'train', 'val', 'test', 'test_all'
@@ -83,7 +84,13 @@ class BrainDataset(BasicDataset):
         img, mask, aux = map(lambda arr: self.hwc_to_chw(arr), [img, mask, aux])
 
 
+        img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
+        aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
 
+        img = img * 2 - 1.0
+        aux = aux * 2 - 1.0
+        
+        
         if self.tile_z_dim > 1 and self.input_window == 1: 
             img = img.repeat( [ self.tile_z_dim, 1, 1] )
             assert img.ndimension() == 3

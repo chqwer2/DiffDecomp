@@ -19,16 +19,16 @@ my_augv = {
   'shear': 20,
   'scale':(0.5, 1.5),
 },
-'elastic'   : {'alpha':20,'sigma':5}, # medium
+'elastic'   : {'alpha':0,'sigma':0}, # medium   {'alpha':20,'sigma':5},
 'reduce_2d': True,
-'gamma_range': (0.2, 1.8),
+'gamma_range': (1.0, 1.0 ),   #(0.2, 1.8),
 'noise' : {
-    'noise_std': 0.15,
+    'noise_std': 0, # 0.15
     'clip_pm1': False
     },
 'bright_contrast': {
-    'contrast': (0.60, 1.5),
-    'bright': (-10,  10)
+    'contrast': (1.0, 1.0), #(0.60, 1.5),
+    'bright': (0, 0)#(-10,  10)
     }
 }
 
@@ -40,6 +40,7 @@ tr_aug = {
 def get_contrast_example(image, random_angle=0, flip=0):
     if flip == [3]:
         flip = [1, 2]
+        
     # [..., H, W]
     image_rotate = torchrotate(image, random_angle,
                                 interpolation=InterpolationMode.BILINEAR)  # Bilinear

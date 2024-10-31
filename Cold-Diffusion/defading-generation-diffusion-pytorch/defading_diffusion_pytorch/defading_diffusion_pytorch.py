@@ -139,7 +139,7 @@ class GaussianDiffusion(nn.Module):
     ):
         super().__init__()
         # self.diffusion_type = diffusion_type
-        self.model_type = diffusion_type.split('_')[0]
+        self.backbone = diffusion_type.split('_')[0]
         self.degradation_type = diffusion_type.split('_')[1]
         
         self.channels = channels
@@ -160,7 +160,7 @@ class GaussianDiffusion(nn.Module):
             one_minus_alphas = 1. - alphas
 
         # Frequency Loss
-        if self.model_type == 'twobranch':
+        if self.backbone == 'twobranch':
             self.amploss = self.denoise_fn.amploss  # .to(self.device, non_blocking=True)
             self.phaloss = self.denoise_fn.phaloss  # .to(self.device, non_blocking=True)
             self.lpips = self.denoise_fn.perceptual_model # .to(self.device, non_blocking=True)
@@ -172,7 +172,7 @@ class GaussianDiffusion(nn.Module):
         self.sampling_routine = sampling_routine
 
     @torch.no_grad()
-    def sample(self, batch_size = 16, img=None, t=None):
+    def sample(self, batch_size = 16, img=None, aux=None, t=None):
 
         self.denoise_fn.eval()
         if t == None:
@@ -184,8 +184,9 @@ class GaussianDiffusion(nn.Module):
 
         while (t):
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
-            x1_bar = self.denoise_fn(img, step)
-            x2_bar = orig #self.get_x2_bar_from_xt(x1_bar, img, step)
+            x1_bar, x1_bar_fre = self.denoise_fn(img, aux, step)
+            x1_bar = x1_bar/2 + x1_bar_fre/2
+            x2_bar = orig     #self.get_x2_bar_from_xt(x1_bar, img, step)
 
             if direct_recons is None:
                 direct_recons = x1_bar
@@ -347,6 +348,7 @@ class GaussianDiffusion(nn.Module):
     
         
     def reconstruct_loss(self, x_start, x_recon):
+        # print("DEBUG:", x_start.shape)
         if self.loss_type == 'l1':
             loss = (x_start - x_recon).abs().mean()
         elif self.loss_type == 'l2':
@@ -355,19 +357,21 @@ class GaussianDiffusion(nn.Module):
             raise NotImplementedError()
         return loss
 
-    def p_losses(self, x_start, x_end, t):
+    def p_losses(self, x_start, x_end, aux=None, t=None):
         b, c, h, w = x_start.shape
         if self.train_routine == 'Final':
             x_mix = self.q_sample(x_start=x_start, x_end=x_end, t=t)
-            if self.model_type == 'unet':
+            
+            if self.backbone == 'unet':
                 x_recon = self.denoise_fn(x_mix, t)
                 loss = self.reconstruct_loss(x_start, x_recon)
                 
-            elif self.model_type == 'twobranch':
-                x_recon, x_recon_fre = self.denoise_fn(x_mix, t)
+            elif self.backbone == 'twobranch':
+                x_recon, x_recon_fre = self.denoise_fn(x_mix, aux, t)
+
                 loss_spatial = self.reconstruct_loss(x_start, x_recon)
                 loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
-                loss += loss_spatial + loss_freq
+                loss = loss_spatial + loss_freq
                 
                 fft_weight = 0.01
                 amp = self.amploss(x_recon_fre, x_start)
@@ -379,11 +383,14 @@ class GaussianDiffusion(nn.Module):
            
         return loss
 
-    def forward(self, x1, x2, *args, **kwargs):
+    def forward(self, x1, x2, aux=None, *args, **kwargs):
         b, c, h, w, device, img_size, = *x1.shape, x1.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
-        return self.p_losses(x1, x2, t, *args, **kwargs)
+        if self.backbone == "unet":
+            return self.p_losses(x1, x2, t=t, *args, **kwargs)
+        else:
+            return self.p_losses(x1, x2, aux, t, *args, **kwargs)
 
     
 # trainer class
@@ -437,7 +444,9 @@ class Trainer(object):
         dataset = None,
         shuffle=True,
         domain=None,
-        aux_modality=None
+        aux_modality=None,
+        num_channels=1,
+        debug=False
 
     ):
         super().__init__()
@@ -450,7 +459,7 @@ class Trainer(object):
         self.save_and_sample_every = save_and_sample_every
 
 
-        
+        self.num_channels = num_channels
         self.batch_size = train_batch_size
         self.image_size = image_size
         self.gradient_accumulate_every = gradient_accumulate_every
@@ -462,9 +471,11 @@ class Trainer(object):
         elif dataset.lower() == 'brain':
             print(dataset, "Brain DA used")
             # mode, base_dir, image_size, nclass, domains, aux_modality,
-            #  mode, base_dir, image_size, nclass, domains, aux_modality,
-            self.ds = BrainDataset("train", folder, image_size, 4, 
-                                   domains=domain, aux_modality=aux_modality)  # mode, base_dir, domains: 
+            self.ds = BrainDataset("train", folder, image_size, 4,
+                                   debug=debug,  
+                                   domains=domain, 
+                                   num_channels=num_channels,
+                                   aux_modality=aux_modality)  # mode, base_dir, domains: 
         else:
             print(dataset)
             self.ds = Dataset(folder, image_size)
@@ -474,8 +485,9 @@ class Trainer(object):
         self.opt = Adam(diffusion_model.parameters(), lr=train_lr)
         self.step = 0
 
+        os.makedirs(results_folder, exist_ok=True)
         self.results_folder = Path(results_folder)
-        self.results_folder.mkdir(exist_ok = True)
+        # self.results_folder.mkdir(exist_ok = True)
 
         self.fp16 = fp16
 
@@ -540,21 +552,30 @@ class Trainer(object):
 
         backwards = partial(loss_backwards, self.fp16)
 
+        printability = True
+        
         acc_loss = 0
         while self.step < self.train_num_steps:
             u_loss = 0
             for i in range(self.gradient_accumulate_every):
-                data_1 = next(self.dl)
-
-                data_2 = torch.rand((self.batch_size, 3)) - 0.5
-                data_2 = data_2.unsqueeze(2)
-                data_2 = data_2.unsqueeze(3)
-
-                data_2 = data_2.expand(self.batch_size, 3, self.image_size, self.image_size)
-
-                data_1, data_2 = data_1.cuda(), data_2.cuda()
-                loss = torch.mean(self.model(data_1, data_2))
+                data_dict = next(self.dl)
                 
+                img = data_dict['img'].cuda()
+                aux = data_dict['aux'].cuda()
+
+                
+                noise = torch.rand((self.batch_size, self.num_channels)) - 0.5
+                noise = noise.unsqueeze(2)
+                noise = noise.unsqueeze(3)
+                noise = noise.expand(self.batch_size, self.num_channels, self.image_size, self.image_size)
+                if printability:
+                    print("DEBUG - img/aux shape: ", img.shape, aux.shape)
+                    printability = False
+                    
+                out = self.model(img, noise, aux)
+                
+                # data_1, data_2 = data_1.cuda(), data_2.cuda()
+                loss = torch.mean(out - img)
                 
                 if self.step % 100 == 0:
                     print(f'{self.step}: {loss.item()}')
@@ -574,27 +595,35 @@ class Trainer(object):
                 milestone = self.step // self.save_and_sample_every
                 batches = self.batch_size
 
-                data_2 = torch.rand((self.batch_size, 3)) - 0.5
-                data_2 = data_2.unsqueeze(2)
-                data_2 = data_2.unsqueeze(3)
+                noise = torch.rand((self.batch_size, self.num_channels)) - 0.5
+                noise = noise.unsqueeze(2)
+                noise = noise.unsqueeze(3)
+                noise = noise.expand(self.batch_size, self.num_channels, self.image_size, self.image_size)
+                
+                og_img = noise.cuda()
 
-                data_2 = data_2.expand(self.batch_size, 3, self.image_size, self.image_size)
-                og_img = data_2.cuda()
+                xt, direct_recons, all_images = self.ema_model.module.sample(batch_size=batches, 
+                                                                             aux=aux, 
+                                                                             img=og_img)
 
-                xt, direct_recons, all_images = self.ema_model.module.sample(batch_size=batches, img=og_img)
-
+                # VERIFICATION : Test sampled Image
                 og_img = (og_img + 1) * 0.5
-                utils.save_image(og_img, str(self.results_folder / f'sample-og-{milestone}.png'), nrow=6)
-
                 all_images = (all_images + 1) * 0.5
-                utils.save_image(all_images, str(self.results_folder / f'sample-recon-{milestone}.png'), nrow = 6)
-
                 direct_recons = (direct_recons + 1) * 0.5
-                utils.save_image(direct_recons, str(self.results_folder / f'sample-direct_recons-{milestone}.png'), nrow=6)
-
                 xt = (xt + 1) * 0.5
-                utils.save_image(xt, str(self.results_folder / f'sample-xt-{milestone}.png'),
-                                 nrow=6)
+                aux = (aux + 1) * 0.5
+                
+                print("DEBUG - og_img shape: ", og_img.shape)
+                print("DEBUG - all_images shape: ", all_images.shape)
+                print("DEBUG - direct_recons shape: ", direct_recons.shape)
+                print("DEBUG - xt shape: ", xt.shape)
+                
+                utils.save_image(og_img, str(self.results_folder / f'{self.step}-sample-{milestone}.png'), nrow=6)
+                utils.save_image(all_images, str(self.results_folder / f'{self.step}-all_images-{milestone}.png'), nrow = 6)
+                utils.save_image(direct_recons, str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
+                utils.save_image(xt, str(self.results_folder / f'{self.step}-sample-xt-{milestone}.png'), nrow=6)
+                utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
+                
 
                 acc_loss = acc_loss/(self.save_and_sample_every+1)
                 experiment.log_metric("Training Loss", acc_loss, step=self.step)
@@ -612,11 +641,11 @@ class Trainer(object):
     def test_from_data(self, extra_path, s_times=None):
         batches = self.batch_size
 
-        data_2 = torch.rand((self.batch_size, 3)) - 0.5
+        data_2 = torch.rand((self.batch_size, self.num_channels )) - 0.5
         data_2 = data_2.unsqueeze(2)
         data_2 = data_2.unsqueeze(3)
 
-        data_2 = data_2.expand(self.batch_size, 3, self.image_size, self.image_size)
+        data_2 = data_2.expand(self.batch_size, self.num_channels, self.image_size, self.image_size)
         og_img = data_2.cuda()
         og_img = og_img + 0.000001 * torch.randn_like(og_img)
 
