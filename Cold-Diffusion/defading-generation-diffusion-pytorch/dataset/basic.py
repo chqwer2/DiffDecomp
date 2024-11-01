@@ -24,7 +24,7 @@ def get_basedir(data_dir):
 class BasicDataset(torch_data.Dataset):
     def __init__(self, fineSize, mode, transforms, base_dir, domains: list, aux_modality, pseudo = False, 
                  idx_pct = [0.7, 0.1, 0.2], tile_z_dim = 3, extern_norm_fn = None, 
-                 LABEL_NAME=["bg", "fore"], debug=False, nclass=4, 
+                 LABEL_NAME=["bg", "fore"], debug=False, nclass=4, num_channels=3,
                  filter_non_labeled=False, use_diff_axis_view=False, chunksize=200):
         """
         Args:
@@ -42,11 +42,13 @@ class BasicDataset(torch_data.Dataset):
         self.is_train = True if mode == 'train' else False
         self.phase = mode
         self.domains = domains
+        self.num_channels = num_channels
         
         # Modality
-        self.main_modality = domains[0].split("_")[-1]
+        self.main_modality = domains[-1].split("-")[-1]
         self.aux_modality = aux_modality.upper()
         
+        print(f"=== Donmain: {domains}, Main modality: {self.main_modality}, Aux modality: {self.aux_modality}")
         
         self.pseudo = pseudo
         self.all_label_names = LABEL_NAME
@@ -257,6 +259,11 @@ class BasicDataset(torch_data.Dataset):
 
                 img_original = np.float32(img)
                 img = img_original.copy()
+                
+                aux = nio.read_nii_bysitk(itm["aux_fid"])
+                aux_original = np.float32(aux)
+                aux = aux_original.copy()
+                
 
                 # img, self.mean, self.std = self.normalize_op(img)
                 _, mean, std = self.normalize_op(img)
@@ -287,7 +294,7 @@ class BasicDataset(torch_data.Dataset):
                 if img.shape[1] != self.fineSize:
                     # H, W, C
                     res = self.resizer(image=img, mask=lb, image2=aux)
-                    img, lb = res['image'], res['mask'], res['image2']
+                    img, lb, aux = res['image'], res['mask'], res['image2']
 
                 prt_cache = f" {_domain} stat ({domain_ids}/{len(_curr_chunk)}): shape={img.shape}, max={img.max()}, min={img.min()}"
 

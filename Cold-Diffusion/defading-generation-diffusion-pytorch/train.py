@@ -40,10 +40,15 @@ parser.add_argument('--reverse', action="store_true")
 parser.add_argument('--dataset', default='brain', type=str)
 parser.add_argument('--domain', default=None, type=str)
 parser.add_argument('--aux_modality', default=None, type=str)
-
+parser.add_argument('--deviceid', default=0, type=int)
+parser.add_argument('--num_channels', default=1, type=int)
+parser.add_argument('--train_bs', default=24, type=int)
+parser.add_argument('--diffusion_type', default='twobranch_fade', type=str)
+parser.add_argument('--debug', action="store_true")
 
 args = parser.parse_args()
 print(args)
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.deviceid)
 
 image_channels = 1
 
@@ -107,7 +112,8 @@ diffusion = GaussianDiffusion(
     sampling_routine = args.sampling_routine,
     reverse = args.reverse,
     kernel_std = args.kernel_std,
-    initial_mask=args.initial_mask
+    initial_mask=args.initial_mask,
+    num_channels = args.num_channels
 ).cuda()
 
 
@@ -120,7 +126,7 @@ trainer = Trainer(
     diffusion,
     args.data_path,
     image_size = 128,
-    train_batch_size = 32,
+    train_batch_size = args.train_bs,
     train_lr = 2e-5,
     train_num_steps = args.train_steps,         # total training steps
     gradient_accumulate_every = 2,    # gradient accumulation steps
@@ -130,9 +136,11 @@ trainer = Trainer(
     load_path = args.load_path,
     dataset = args.dataset,
     domain = args.domain,
-    aux_modality = args.aux_modality
+    aux_modality = args.aux_modality,
+    debug = args.debug,
+    num_channels = args.num_channels
+    
 )
 
 trainer.train()
-
 

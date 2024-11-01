@@ -28,12 +28,14 @@ class BrainDataset(BasicDataset):
         """
         self.dataset_key = "brain"
         transforms = get_albu_transforms(mode)
-
+        if isinstance(domains, str):
+            domains = [domains]
+            
         super(BrainDataset, self).__init__(image_size, mode, 
                                            transforms, 
                                            base_dir, 
                                            domains, aux_modality, 
-                                           debug=False, nclass=nclass, 
+                                           nclass=nclass, 
                                            LABEL_NAME=LABEL_NAME, 
                                            filter_non_labeled=True, 
                                            **kwargs)
@@ -91,7 +93,7 @@ class BrainDataset(BasicDataset):
         aux = aux * 2 - 1.0
         
         
-        if self.tile_z_dim > 1 and self.input_window == 1: 
+        if self.tile_z_dim > 1 and self.input_window == 1 and  self.num_channels == 3 : 
             img = img.repeat( [ self.tile_z_dim, 1, 1] )
             assert img.ndimension() == 3
 

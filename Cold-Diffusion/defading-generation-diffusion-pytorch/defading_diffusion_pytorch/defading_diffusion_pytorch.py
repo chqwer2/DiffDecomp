@@ -135,7 +135,8 @@ class GaussianDiffusion(nn.Module):
         sampling_routine='default',
         reverse = False,
         kernel_std = 0.15,
-        initial_mask=11
+        initial_mask=11,
+        num_channels=1
     ):
         super().__init__()
         # self.diffusion_type = diffusion_type
@@ -487,7 +488,6 @@ class Trainer(object):
 
         os.makedirs(results_folder, exist_ok=True)
         self.results_folder = Path(results_folder)
-        # self.results_folder.mkdir(exist_ok = True)
 
         self.fp16 = fp16
 
@@ -618,6 +618,7 @@ class Trainer(object):
                 print("DEBUG - direct_recons shape: ", direct_recons.shape)
                 print("DEBUG - xt shape: ", xt.shape)
                 
+                os.makedirs(self.results_folder, exist_ok=True)
                 utils.save_image(og_img, str(self.results_folder / f'{self.step}-sample-{milestone}.png'), nrow=6)
                 utils.save_image(all_images, str(self.results_folder / f'{self.step}-all_images-{milestone}.png'), nrow = 6)
                 utils.save_image(direct_recons, str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
