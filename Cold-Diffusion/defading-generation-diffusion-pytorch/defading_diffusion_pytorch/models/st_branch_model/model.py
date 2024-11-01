@@ -332,7 +332,7 @@ class TwoBranchModel(pl.LightningModule):
         return [opt_ae, opt_disc], [scheduler_ae, scheduler_disc]
     
 
-    def forward(self, main, aux):
+    def forward(self, main, aux, t):
         #### T1 fre encoder  # T1
         t1_fre = self.model.head_fre_T1(aux) # 128
 
@@ -454,7 +454,7 @@ class TwoBranchModel(pl.LightningModule):
 
         res = self.model.tail(up3_fuse_mo)
 
-        return {'recon_out': res + main, 'recon_fre': res_fre + main}
+        return res + main,  res_fre + main
     
     
     def training_step(self, batch, batch_idx, optimizer_idx):
