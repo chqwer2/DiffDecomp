@@ -8,7 +8,7 @@ git pull
 
 
 
-deviceid=6
+deviceid=5
 datapath=/home/hao/data/medical/Brain/
 dataset=Brain
 domain=BraTS-GLI-T1C 
@@ -16,6 +16,7 @@ aux_modality=T2F         # T1C, T1N, T2W, T2F
 num_channels=1
 train_bs=24   # 4 | 32
 diffusion_type=twobranch_fade    # unet | twobranch
+diffusion_type=twobranch_kspace  
 # diffusion_type=unet_fade    # unet | twobranch
 save_folder=./results/$diffusion_type
 

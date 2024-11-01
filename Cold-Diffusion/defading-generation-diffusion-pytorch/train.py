@@ -33,6 +33,8 @@ parser.add_argument('--sampling_routine', default='default', type=str)
 parser.add_argument('--remove_time_embed', action="store_true")
 parser.add_argument('--residual', action="store_true")
 parser.add_argument('--loss_type', default='l1', type=str)
+
+# Defade specific arguments
 parser.add_argument('--initial_mask', default=11, type=int)
 parser.add_argument('--kernel_std', default=0.15, type=float)
 parser.add_argument('--reverse', action="store_true")
@@ -45,6 +47,7 @@ parser.add_argument('--num_channels', default=1, type=int)
 parser.add_argument('--train_bs', default=24, type=int)
 parser.add_argument('--diffusion_type', default='twobranch_fade', type=str)
 parser.add_argument('--debug', action="store_true")
+parser.add_argument('--image_size', default=128, type=int)
 
 args = parser.parse_args()
 print(args)
@@ -55,6 +58,11 @@ image_channels = 1
 
 diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
 model_name = diffusion_type.split("_")[0]   # unet | twobranch
+
+if args.debug:
+    args.train_steps = 100
+    args.time_steps  = 5
+
 
 
 if model_name == "unet":
@@ -104,15 +112,17 @@ elif model_name == "twobranch":
 diffusion = GaussianDiffusion(
     diffusion_type,
     model,
-    image_size = 128,
+    image_size = args.image_size,
     channels = image_channels,
     timesteps = args.time_steps,   # number of steps
     loss_type = args.loss_type,    # L1 or L2
     train_routine = args.train_routine,
     sampling_routine = args.sampling_routine,
     reverse = args.reverse,
+    
     kernel_std = args.kernel_std,
     initial_mask=args.initial_mask,
+    
     num_channels = args.num_channels
 ).cuda()
 
@@ -120,6 +130,8 @@ diffusion = GaussianDiffusion(
 
 import torch
 diffusion = torch.nn.DataParallel(diffusion, device_ids=range(torch.cuda.device_count()))
+
+print("=== train_steps:", args.train_steps)
 
 
 trainer = Trainer(
@@ -139,7 +151,6 @@ trainer = Trainer(
     aux_modality = args.aux_modality,
     debug = args.debug,
     num_channels = args.num_channels
-    
 )
 
 trainer.train()

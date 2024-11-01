@@ -31,7 +31,7 @@ try:
 except:
     APEX_AVAILABLE = False
 
-from .degradation import get_fade_kernel, get_reverse_kernels_with_schedule
+from .degradation import get_fade_kernel, get_kernels_with_schedule, get_ksu_kernel, apply_ksu_kernel
 from .models.unet import Unet
 from .models.st_branch_model.model import TwoBranchModel
 
@@ -75,8 +75,8 @@ class EMA():
 
 
 # gaussian diffusion trainer class
-
-def extract(a, t, x_shape):
+def extract_fade_kernel(a, t, x_shape):
+    # self.alphas, t, x_start.shape
     b, *_ = t.shape
     ret = None
     for i in range(b):
@@ -106,15 +106,6 @@ def cosine_beta_schedule(timesteps, s = 0.008):
 
 
 
-def get_kernels_with_schedule(timesteps, size, kernel_std, initial_mask):
-    faded_kernels = []
-    kers = torch.ones((1, size, size))
-
-    for i in range(timesteps):
-        kernel = get_fade_kernel((size + 1, size + 1), (kernel_std * (i + initial_mask), kernel_std * (i + initial_mask)))
-        kers = kers * kernel
-        faded_kernels.append(kers)
-    return torch.stack(faded_kernels)
 
 
 
@@ -151,14 +142,32 @@ class GaussianDiffusion(nn.Module):
         self.loss_type = loss_type
         self.reverse = reverse
 
-        if self.reverse:
-            one_minus_alphas = get_reverse_kernels_with_schedule(
-                                        timesteps, image_size, kernel_std, initial_mask)
-            alphas = 1. - one_minus_alphas
-        else:
-            alphas = get_kernels_with_schedule(
-                                        timesteps, image_size, kernel_std, initial_mask)
+        if self.degradation_type == 'fade':
+            if self.reverse:
+                one_minus_alphas = get_kernels_with_schedule(
+                                            timesteps, image_size, kernel_std, initial_mask, reverse=True)
+                alphas = 1. - one_minus_alphas
+            else:
+                alphas = get_kernels_with_schedule(
+                                            timesteps, image_size, kernel_std, initial_mask)
+                one_minus_alphas = 1. - alphas
+                
+            self.register_buffer('alphas', alphas)
+            self.register_buffer('one_minus_alphas', one_minus_alphas)
+        
+        elif self.degradation_type == 'kspace':
+            alphas = get_ksu_kernel(timesteps)
             one_minus_alphas = 1. - alphas
+            self.register_buffer('alphas', alphas)
+            self.register_buffer('one_minus_alphas', one_minus_alphas)
+            
+            # apply_ksu_kernel
+        else:
+            print(f"=== {self.degradation_type} degradation not implemented yet")
+            raise NotImplementedError()
+        
+        print("=== alpha mask shape: ", alphas.shape)
+        
 
         # Frequency Loss
         if self.backbone == 'twobranch':
@@ -166,9 +175,6 @@ class GaussianDiffusion(nn.Module):
             self.phaloss = self.denoise_fn.phaloss  # .to(self.device, non_blocking=True)
             self.lpips = self.denoise_fn.perceptual_model # .to(self.device, non_blocking=True)
             
-        self.register_buffer('alphas', alphas)
-        self.register_buffer('one_minus_alphas', one_minus_alphas)
-
         self.train_routine = train_routine
         self.sampling_routine = sampling_routine
 
@@ -210,10 +216,16 @@ class GaussianDiffusion(nn.Module):
         return xt, direct_recons, img
 
     def get_x2_bar_from_xt(self, x1_bar, xt, t):
-        return (
-                (xt - extract(self.alphas, t, x1_bar.shape) * x1_bar) /
-                (extract(self.one_minus_alphas, t, x1_bar.shape) + 0.00000000000001)
-        )
+        print("=== running get_x2_bar_from_xt")
+        if self.degradation_type == 'fade':
+            return (
+                    (xt - extract_fade_kernel(self.alphas, t, x1_bar.shape) * x1_bar) /
+                    (extract_fade_kernel(self.one_minus_alphas, t, x1_bar.shape) + 0.00000000000001)
+            )
+            
+        elif self.degradation_type == 'kspace':
+            return apply_ksu_kernel(xt, self.alphas[t])
+
 
     @torch.no_grad()
     def gen_sample(self, batch_size=16, img=None, noise_level=0, t=None):
@@ -333,17 +345,24 @@ class GaussianDiffusion(nn.Module):
 
     def q_sample_fade(self, x_start, x_end, t):
         # simply use the alphas to interpolate
+        # Gaussian masking
         return (
-                extract(self.alphas, t, x_start.shape) * x_start +
-                extract(self.one_minus_alphas, t, x_start.shape) * x_end
+                extract_fade_kernel(self.alphas, t, x_start.shape) * x_start +
+                extract_fade_kernel(self.one_minus_alphas, t, x_start.shape) * x_end      # reverse
         )
-        
+            
+
     def q_sample_kspace(self, x_start, x_end, t):
-        pass
-        
+        # simply use the alphas to interpolate
+        return ( 
+                apply_ksu_kernel(x_start, self.alphas[t]) + 
+                apply_ksu_kernel(x_end, self.one_minus_alphas[t])
+        )
+
     def q_sample(self, x_start, x_end, t):
         if self.degradation_type == 'fade':
             return self.q_sample_fade(x_start, x_end, t)
+        
         elif self.degradation_type == 'kspace':
             return self.q_sample_kspace(x_start, x_end, t)
     
@@ -457,7 +476,7 @@ class Trainer(object):
         self.update_ema_every = update_ema_every
 
         self.step_start_ema = step_start_ema
-        self.save_and_sample_every = save_and_sample_every
+        self.save_and_sample_every = save_and_sample_every if not debug else 10
 
 
         self.num_channels = num_channels
@@ -617,6 +636,7 @@ class Trainer(object):
                 print("DEBUG - all_images shape: ", all_images.shape)
                 print("DEBUG - direct_recons shape: ", direct_recons.shape)
                 print("DEBUG - xt shape: ", xt.shape)
+                # 24, 1, 128, 128
                 
                 os.makedirs(self.results_folder, exist_ok=True)
                 utils.save_image(og_img, str(self.results_folder / f'{self.step}-sample-{milestone}.png'), nrow=6)
@@ -624,7 +644,9 @@ class Trainer(object):
                 utils.save_image(direct_recons, str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
                 utils.save_image(xt, str(self.results_folder / f'{self.step}-sample-xt-{milestone}.png'), nrow=6)
                 utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
-                
+                combine = torch.cat((og_img, all_images, direct_recons, xt, aux), 2)
+                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=1)
+
 
                 acc_loss = acc_loss/(self.save_and_sample_every+1)
                 experiment.log_metric("Training Loss", acc_loss, step=self.step)

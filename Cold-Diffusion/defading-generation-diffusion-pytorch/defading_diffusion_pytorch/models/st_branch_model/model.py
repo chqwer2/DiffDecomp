@@ -333,6 +333,7 @@ class TwoBranchModel(pl.LightningModule):
     
 
     def forward(self, main, aux, t):
+        
         #### T1 fre encoder  # T1
         t1_fre = self.model.head_fre_T1(aux) # 128
 
@@ -347,7 +348,6 @@ class TwoBranchModel(pl.LightningModule):
 
         neck_fre_t1 = self.model.neck_fre_T1(down3_fre_mo_t1) # 16
         neck_fre_mo_t1 = self.model.neck_fre_mo_T1(neck_fre_t1)
-
 
         #### T2 fre encoder and T1 & T2 fre fusion
         x_fre = self.model.head_fre(main) # 128
