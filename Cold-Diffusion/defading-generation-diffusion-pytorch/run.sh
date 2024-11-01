@@ -10,6 +10,7 @@ git pull
 
 deviceid=5
 datapath=/home/hao/data/medical/Brain/
+# /gamedrive/Datasets/medical/Brain/
 dataset=Brain
 domain=BraTS-GLI-T1C 
 aux_modality=T2F         # T1C, T1N, T2W, T2F
