@@ -2,6 +2,7 @@
 
 mamba activate diffmri
 cd /home/hao/repo/DiffDecomp/Cold-Diffusion/defading-generation-diffusion-pytorch
+cd ~/hao/repo/DiffDecomp/Cold-Diffusion/defading-generation-diffusion-pytorch
 # cd STEP1.AutoencoderModel2D
 git stash
 git pull
