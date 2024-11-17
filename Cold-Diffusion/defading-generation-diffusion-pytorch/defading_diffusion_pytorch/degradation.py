@@ -38,8 +38,9 @@ def get_kernels_with_schedule(timesteps, size, kernel_std, initial_mask, reverse
 # ---------------------------
 from torch.fft import *
 # Cartesian Mask Support
-from .ksutils import *
+from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc
 # Gaussain 2D Mask Support
+
 # from utils.utils_kspace_undersampling import utils_undersampling_pattern, utils_radial_spiral_undersampling
 
 def get_mask_func(ksu_mask_type, af, cf):
@@ -47,6 +48,7 @@ def get_mask_func(ksu_mask_type, af, cf):
         return EquispacedMaskFractionFunc(center_fractions=[cf], accelerations=[af])
     elif ksu_mask_type == 'cartesian_random':
         return RandomMaskFunc(center_fractions=[cf], accelerations=[af])
+    
     # elif ksu_mask_type == 'gaussian_2d':
     #     raise NotImplementedError
     #     return utils_undersampling_pattern.cs_generate_pattern_2d
@@ -94,7 +96,8 @@ def get_ksu_mask( ksu_mask_type, af, cf, pe, fe, seed=0):
 def get_ksu_kernel(timesteps, image_size, ksu_routine="LogSamplingRate", 
                    ksu_mask_type="cartesian_random"):
     masks = []
-    [ksu_mask_pe, ksu_mask_fe] = image_size   # , ksu_mask_pe=320, ksu_mask_fe=320
+    ksu_mask_pe = ksu_mask_fe  = image_size   # , ksu_mask_pe=320, ksu_mask_fe=320
+    ksu_mask_fe
     if ksu_routine == 'LinearSamplingRate':
         # Generate the sampling rate list with torch.linspace, reversed, and skip the first element
         sr_list = torch.linspace(start=0.01, end=1, steps=timesteps + 1).flip(0)

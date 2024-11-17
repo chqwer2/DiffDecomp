@@ -162,7 +162,7 @@ class GaussianDiffusion(nn.Module):
             # print("alphas = ", alphas)
             # alphas = torch.tensor(alphas)
             alphas = torch.stack(alphas)
-            print("image_size: ", image_size)
+            # print("image_size: ", image_size)
             print("=== alpha mask shape: ", alphas.shape)
             
             one_minus_alphas = 1. - alphas  # [1. - a for a in alphas]
@@ -175,7 +175,7 @@ class GaussianDiffusion(nn.Module):
             print(f"=== {self.degradation_type} degradation not implemented yet")
             raise NotImplementedError()
         
-        print("=== alpha mask shape: ", alphas.shape)
+        # print("=== alpha mask shape: ", alphas.shape)
         
 
         # Frequency Loss
