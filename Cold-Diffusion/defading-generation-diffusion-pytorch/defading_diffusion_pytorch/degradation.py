@@ -37,13 +37,62 @@ def get_kernels_with_schedule(timesteps, size, kernel_std, initial_mask, reverse
 # Kspace kernels
 # ---------------------------
 from torch.fft import *
+# Cartesian Mask Support
+from .ksutils import *
+# Gaussain 2D Mask Support
+# from utils.utils_kspace_undersampling import utils_undersampling_pattern, utils_radial_spiral_undersampling
 
+def get_mask_func(ksu_mask_type, af, cf):
+    if ksu_mask_type == 'cartesian_regular':
+        return EquispacedMaskFractionFunc(center_fractions=[cf], accelerations=[af])
+    elif ksu_mask_type == 'cartesian_random':
+        return RandomMaskFunc(center_fractions=[cf], accelerations=[af])
+    # elif ksu_mask_type == 'gaussian_2d':
+    #     raise NotImplementedError
+    #     return utils_undersampling_pattern.cs_generate_pattern_2d
+    # elif ksu_mask_type == 'radial_add':
+    #     return utils_radial_spiral_undersampling.generate_mask_add
+    # elif ksu_mask_type == 'radial_sub':
+    #     return utils_radial_spiral_undersampling.generate_mask_sub
+    # elif ksu_mask_type == 'spiral_add':
+    #     return utils_radial_spiral_undersampling.generate_mask_add
+    # elif ksu_mask_type == 'spiral_sub':
+    #     return utils_radial_spiral_undersampling.generate_mask_sub
+    else:
+        raise NotImplementedError
+
+
+def get_ksu_mask( ksu_mask_type, af, cf, pe, fe, seed=0):
+    
+        mask_func = get_mask_func(ksu_mask_type, af, cf)
+
+        if ksu_mask_type in ['cartesian_regular', 'cartesian_random']:
+
+            mask, num_low_freq = mask_func((1, pe, 1), seed=seed)  # mask (torch): (1, pe, 1)
+            mask = mask.permute(0, 2, 1).repeat(1, fe, 1)  # mask (torch): (1, pe, 1) --> (1, 1, pe) --> (1, fe, pe)
+
+        elif ksu_mask_type == 'gaussian_2d':
+            mask, _ = mask_func(resolution=(fe, pe), accel=af, sigma=100, seed=seed)  # mask (numpy): (fe, pe)
+            mask = torch.from_numpy(mask[np.newaxis, :, :])  # mask (torch): (fe, pe) --> (1, fe, pe)
+
+        elif ksu_mask_type in ['radial_add', 'radial_sub', 'spiral_add', 'spiral_sub']:
+            sr = 1 / af
+            mask = mask_func(mask_type=ksu_mask_type, mask_sr=sr, res=pe, seed=seed)  # mask (numpy): (pe, pe)
+            mask = torch.from_numpy(mask[np.newaxis, :, :])  # mask (torch): (pe, pe) --> (1, pe, pe)
+
+        else:
+            raise NotImplementedError
+
+        return mask
+    
+    
 # ksu_masks = get_ksu_kernels()
 # (C, H, W) --> (B, C, H, W)
 # ksu_mask = ksu_masks[t].repeat(batch_size, 1, 1, 1).to(device)
 # img = ksu(x_start=x_start, mask=ksu_mask)
 
-def get_ksu_kernel(timesteps, ksu_routine="LogSamplingRate", ksu_mask_type="cartesian_random", ksu_mask_pe=320, ksu_mask_fe=320):
+def get_ksu_kernel(timesteps, ksu_routine="LogSamplingRate", 
+                   ksu_mask_type="cartesian_random", ksu_mask_pe=320, ksu_mask_fe=320):
     masks = []
 
     if ksu_routine == 'LinearSamplingRate':
@@ -53,7 +102,7 @@ def get_ksu_kernel(timesteps, ksu_routine="LogSamplingRate", ksu_mask_type="cart
         for sr in sr_list:
             af = 1 / sr
             cf = sr * 0.32
-            masks.append(get_ksu_kernel(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
+            masks.append(get_ksu_mask(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
     elif ksu_routine == 'LogSamplingRate':
         # Generate the sampling rate list with torch.logspace, reversed, and skip the first element
@@ -62,7 +111,7 @@ def get_ksu_kernel(timesteps, ksu_routine="LogSamplingRate", ksu_mask_type="cart
         for sr in sr_list:
             af = 1 / sr
             cf = sr * 0.32
-            masks.append(get_ksu_kernel(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
+            masks.append(get_ksu_mask(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
     elif ksu_mask_type == 'gaussian_2d':
         raise NotImplementedError("Gaussian 2D mask type is not implemented.")
