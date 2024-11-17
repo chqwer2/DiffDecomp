@@ -216,7 +216,7 @@ class GaussianDiffusion(nn.Module):
                 step2 = torch.full((batch_size,), t - 2, dtype=torch.long).cuda()
                 xt_sub1_bar = self.q_sample(x_start=xt_sub1_bar, x_end=x2_bar, t=step2)
 
-            x = img - xt_bar + xt_sub1_bar
+            x = img - xt_bar + xt_sub1_bar      # Cold Diffusion
             img = x
             t = t - 1
 
@@ -369,10 +369,15 @@ class GaussianDiffusion(nn.Module):
         )
 
     def q_sample(self, x_start, x_end, t):
+        debug = False
         if self.degradation_type == 'fade':
+            if debug:
+                print("=== fade q_sampling")
             return self.q_sample_fade(x_start, x_end, t)
         
         elif self.degradation_type == 'kspace':
+            if debug:
+                print("=== kspace q_sampling")
             return self.q_sample_kspace(x_start, x_end, t)
     
         
@@ -623,38 +628,45 @@ class Trainer(object):
                 milestone = self.step // self.save_and_sample_every
                 batches = self.batch_size
 
+                # Uniform Noise
                 noise = torch.rand((self.batch_size, self.num_channels)) - 0.5
-                noise = noise.unsqueeze(2)
+                noise = noise.unsqueeze(2)  # Expand the dimensions of the tensor, through unsqueeze
                 noise = noise.unsqueeze(3)
                 noise = noise.expand(self.batch_size, self.num_channels, self.image_size, self.image_size)
                 
-                og_img = noise.cuda()
+                og_img = noise.cuda()   # Noise
+                
+                # Or ... TODO
+                or_img = apply_ksu_kernel(img, self.alphas[-1])
+            
+                
+                # or_img = img * mask
 
-                xt, direct_recons, all_images = self.ema_model.module.sample(batch_size=batches, 
+                xt, direct_recons, full_recons = self.ema_model.module.sample(batch_size=batches, 
                                                                              aux=aux, 
                                                                              img=og_img)
 
                 # VERIFICATION : Test sampled Image
-                og_img = (og_img + 1) * 0.5
-                all_images = (all_images + 1) * 0.5
-                direct_recons = (direct_recons + 1) * 0.5
-                xt = (xt + 1) * 0.5
+                og_img = (og_img + 1) * 0.5                   # Input Image
+                full_recons = (full_recons + 1) * 0.5           # All Images
+                direct_recons = (direct_recons + 1) * 0.5     # Direct Reconstructed Image
+                xt = (xt + 1) * 0.5                           # Sampled Image
                 aux = (aux + 1) * 0.5
                 
                 print("DEBUG - og_img shape: ", og_img.shape)
-                print("DEBUG - all_images shape: ", all_images.shape)
+                print("DEBUG - full_recons shape: ", full_recons.shape)
                 print("DEBUG - direct_recons shape: ", direct_recons.shape)
                 print("DEBUG - xt shape: ", xt.shape)
                 # 24, 1, 128, 128
                 
                 os.makedirs(self.results_folder, exist_ok=True)
-                utils.save_image(og_img, str(self.results_folder / f'{self.step}-sample-{milestone}.png'), nrow=6)
-                utils.save_image(all_images, str(self.results_folder / f'{self.step}-all_images-{milestone}.png'), nrow = 6)
+                utils.save_image(og_img, str(self.results_folder / f'{self.step}-xt-Noise-{milestone}.png'), nrow=6)
+                utils.save_image(full_recons, str(self.results_folder / f'{self.step}-full_recons-{milestone}.png'), nrow = 6)
                 utils.save_image(direct_recons, str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
-                utils.save_image(xt, str(self.results_folder / f'{self.step}-sample-xt-{milestone}.png'), nrow=6)
+                # utils.save_image(xt, str(self.results_folder / f'{self.step}-sample-xt-{milestone}.png'), nrow=6)
                 utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
-                combine = torch.cat((og_img, all_images, direct_recons, xt, aux), 2)
-                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=1)
+                combine = torch.cat((og_img, full_recons, direct_recons, aux), 2)
+                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=6)
 
 
                 acc_loss = acc_loss/(self.save_and_sample_every+1)
