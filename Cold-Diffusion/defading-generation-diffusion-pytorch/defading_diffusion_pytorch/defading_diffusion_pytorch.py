@@ -151,13 +151,22 @@ class GaussianDiffusion(nn.Module):
                 alphas = get_kernels_with_schedule(
                                             timesteps, image_size, kernel_std, initial_mask)
                 one_minus_alphas = 1. - alphas
-                
+            
+
             self.register_buffer('alphas', alphas)
             self.register_buffer('one_minus_alphas', one_minus_alphas)
         
         elif self.degradation_type == 'kspace':
-            alphas = get_ksu_kernel(timesteps)
-            one_minus_alphas = 1. - alphas
+            alphas = get_ksu_kernel(timesteps, image_size)
+            # 
+            # print("alphas = ", alphas)
+            # alphas = torch.tensor(alphas)
+            alphas = torch.stack(alphas)
+            print("image_size: ", image_size)
+            print("=== alpha mask shape: ", alphas.shape)
+            
+            one_minus_alphas = 1. - alphas  # [1. - a for a in alphas]
+            
             self.register_buffer('alphas', alphas)
             self.register_buffer('one_minus_alphas', one_minus_alphas)
             

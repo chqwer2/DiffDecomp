@@ -133,7 +133,7 @@ class MaskFunc:
         """
         num_cols = shape[-2]
         center_fraction, acceleration = self.choose_acceleration()
-        num_low_frequencies = round(num_cols * center_fraction)
+        num_low_frequencies = round(float(num_cols * center_fraction))
         center_mask = self.reshape_mask(
             self.calculate_center_mask(shape, num_low_frequencies), shape
         )
@@ -151,8 +151,9 @@ class MaskFunc:
         num_cols = shape[-2]
         mask_shape = [1 for _ in shape]
         mask_shape[-2] = num_cols
-
-        return torch.from_numpy(mask.reshape(*mask_shape).astype(np.float32))
+        if isinstance(mask, torch.Tensor):
+            return mask.view(*mask_shape).to(torch.float32)  
+        return torch.from_numpy(mask.reshape(*mask_shape)).to(torch.float32)   # torch.from_numpy(
 
     def calculate_acceleration_mask(
         self,
@@ -241,7 +242,9 @@ class RandomMaskFunc(MaskFunc):
             num_cols - num_low_frequencies
         )
 
-        return self.rng.uniform(size=num_cols) < prob
+        # return self.rng.uniform(size=num_cols) < prob
+        return torch.rand(num_cols) < prob
+
 
 
 class EquiSpacedMaskFunc(MaskFunc):

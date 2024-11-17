@@ -55,8 +55,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(args.deviceid)
 
 image_channels = 1
 
-
-diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
+diffusion_type = args.diffusion_type
+# diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
 model_name = diffusion_type.split("_")[0]   # unet | twobranch
 
 if args.debug:
