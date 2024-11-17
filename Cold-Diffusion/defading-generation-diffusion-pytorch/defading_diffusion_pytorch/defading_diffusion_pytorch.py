@@ -142,6 +142,8 @@ class GaussianDiffusion(nn.Module):
         self.loss_type = loss_type
         self.reverse = reverse
 
+        print('=== degradation_type:', self.degradation_type)
+        
         if self.degradation_type == 'fade':
             if self.reverse:
                 one_minus_alphas = get_kernels_with_schedule(
@@ -158,10 +160,12 @@ class GaussianDiffusion(nn.Module):
         elif self.degradation_type == 'kspace':
             alphas = get_ksu_kernel(timesteps)
             one_minus_alphas = 1. - alphas
+            
             self.register_buffer('alphas', alphas)
             self.register_buffer('one_minus_alphas', one_minus_alphas)
             
             # apply_ksu_kernel
+            
         else:
             print(f"=== {self.degradation_type} degradation not implemented yet")
             raise NotImplementedError()
@@ -217,6 +221,7 @@ class GaussianDiffusion(nn.Module):
 
     def get_x2_bar_from_xt(self, x1_bar, xt, t):
         print("=== running get_x2_bar_from_xt")
+        
         if self.degradation_type == 'fade':
             return (
                     (xt - extract_fade_kernel(self.alphas, t, x1_bar.shape) * x1_bar) /
@@ -364,6 +369,7 @@ class GaussianDiffusion(nn.Module):
             return self.q_sample_fade(x_start, x_end, t)
         
         elif self.degradation_type == 'kspace':
+            print("=== running kspace qsample")
             return self.q_sample_kspace(x_start, x_end, t)
     
         
@@ -635,7 +641,7 @@ class Trainer(object):
                 print("DEBUG - og_img shape: ", og_img.shape)
                 print("DEBUG - all_images shape: ", all_images.shape)
                 print("DEBUG - direct_recons shape: ", direct_recons.shape)
-                print("DEBUG - xt shape: ", xt.shape)
+                print("DEBUG - xt shape: ", xt.shape)     # What is this?, opps!
                 # 24, 1, 128, 128
                 
                 os.makedirs(self.results_folder, exist_ok=True)

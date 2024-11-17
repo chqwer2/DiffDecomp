@@ -32,4 +32,6 @@ python  train.py --time_steps 50 --train_steps 700000 \
             --remove_time_embed --residual --loss_type l1 \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
-            --initial_mask 11 --kernel_std 0.15 --reverse    --debug
+            --initial_mask 11 --kernel_std 0.15 --reverse     # --debug
+
+
