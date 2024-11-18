@@ -78,7 +78,8 @@ class BrainDataset(BasicDataset):
         
         # img = (img - mean) / std
         img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
-        aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
+        if aux.max() - aux.min() > 1e-3:
+            aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
        
        
         mask = mask[..., 0] 
