@@ -9,7 +9,7 @@ def create_unet_model(
         enc_channels=64,
         num_res_blocks=2, # 3,
         num_components=4, 
-        channel_mult="",
+        channel_mult="",  #
         num_heads=1,
         num_head_channels=64,
         num_heads_upsample=-1,

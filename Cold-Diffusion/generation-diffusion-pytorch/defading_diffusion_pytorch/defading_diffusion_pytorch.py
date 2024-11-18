@@ -158,25 +158,18 @@ class GaussianDiffusion(nn.Module):
         
         elif self.degradation_type == 'kspace':
             alphas = get_ksu_kernel(timesteps, image_size)
-            # 
-            # print("alphas = ", alphas)
-            # alphas = torch.tensor(alphas)
             alphas = torch.stack(alphas)
-            # print("image_size: ", image_size)
+
             print("=== alpha mask shape: ", alphas.shape)
             
-            one_minus_alphas = 1. - alphas  # [1. - a for a in alphas]
-            
+            # one_minus_alphas = 1. - alphas  # [1. - a for a in alphas]
             self.register_buffer('alphas', alphas)
-            self.register_buffer('one_minus_alphas', one_minus_alphas)
+            # self.register_buffer('one_minus_alphas', one_minus_alphas)
             
             # apply_ksu_kernel
         else:
             print(f"=== {self.degradation_type} degradation not implemented yet")
             raise NotImplementedError()
-        
-        # print("=== alpha mask shape: ", alphas.shape)
-        
 
         # Frequency Loss
         if self.backbone == 'twobranch':
@@ -188,16 +181,124 @@ class GaussianDiffusion(nn.Module):
         self.sampling_routine = sampling_routine
 
     @torch.no_grad()
-    def sample(self, batch_size = 16, img=None, aux=None, t=None):
+    def sample(self, batch_size=16,  faded_recon_sample=None, aux=None, t=None):
+
+        rand_fade_kernels = None
+        sample_device = faded_recon_sample.device
+
+        if self.degradation_type == 'fade':
+            if 'Random' in self.fade_routine:
+                rand_fade_kernels = []
+                rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
+                rand_y = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
+                for i in range(batch_size):
+                    rand_fade_kernels.append(torch.stack(
+                        [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                         rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+                rand_fade_kernels = torch.stack(rand_fade_kernels)
+
+            for i in range(t):
+                with torch.no_grad():
+                    if rand_fade_kernels is not None:
+                        faded_recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
+                                                          rand_fade_kernels[:, i].to(sample_device),
+                                                          rand_fade_kernels[:, i].to(sample_device)],
+                                                         1) * faded_recon_sample
+                    else:
+                        faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+
+        elif self.degradation_type == 'kspace':
+            rand_fade_kernels = []
+            # Mask
+            rand_x = (torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long() > 0.5) * 1.0
+            rand_y = (torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long() > 0.5) * 1.0
+            for i in range(batch_size):
+                rand_fade_kernels.append(torch.stack(
+                    [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                     rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+            rand_fade_kernels = torch.stack(rand_fade_kernels)
+
+            for i in range(t):
+                with (torch.no_grad()):
+                    if rand_fade_kernels is not None:
+                        mask = torch.stack([rand_fade_kernels[:, i].to(sample_device),
+                                                          rand_fade_kernels[:, i].to(sample_device),
+                                                          rand_fade_kernels[:, i].to(sample_device)],
+                                                         1)
+                        faded_recon_sample = apply_ksu_kernel( faded_recon_sample, mask)
+                    else:
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, mask)
+
+                        faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+
+                # apply_ksu_kernel(img, self.alphas[t - 1])
+
+        if t is None:
+            t = self.num_timesteps
+
+
+
+        if self.discrete:
+            faded_recon_sample = (faded_recon_sample + 1) * 0.5
+            faded_recon_sample = (faded_recon_sample * 255)
+            faded_recon_sample = faded_recon_sample.int().float() / 255
+            faded_recon_sample = faded_recon_sample * 2 - 1
+
+        xt = faded_recon_sample
+        direct_recons = None
+        recon_sample = None
+
+        while t:
+            step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
+            recon_sample = self.denoise_fn(faded_recon_sample, aux, step)
+
+            if direct_recons is None:
+                direct_recons = recon_sample
+
+            if self.sampling_routine == 'default':
+                for i in range(t - 1):
+                    with torch.no_grad():
+                        if rand_fade_kernels is not None:
+                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
+                                                        rand_fade_kernels[:, i].to(sample_device),
+                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
+                        else:
+                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+                faded_recon_sample = recon_sample
+
+            elif self.sampling_routine == 'x0_step_down':
+                for i in range(t):
+                    with torch.no_grad():
+                        recon_sample_sub_1 = recon_sample
+                        if rand_fade_kernels is not None:
+                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
+                                                        rand_fade_kernels[:, i].to(sample_device),
+                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
+                        else:
+                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+
+                faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
+            recon_sample = faded_recon_sample
+            t -= 1
+
+        return xt, direct_recons, recon_sample
+
+
+    @torch.no_grad()
+    def sample_new(self, batch_size = 16, img=None, aux=None, t=None):
 
         self.denoise_fn.eval()
         if t == None:
             t = self.num_timesteps
 
-        orig = img
-        
-        xt = apply_ksu_kernel(img, self.alphas[-1])  # img apply TODO
-        
+        orig = img   # used to be noise
+        # New masking strategy
+
+        xt = apply_ksu_kernel(img, self.alphas[t - 1])  # img apply TODO
+        # orig = xt
+        img = xt  # Degraded Image
+
         direct_recons = None
 
         while (t):
@@ -218,7 +319,7 @@ class GaussianDiffusion(nn.Module):
                 step2 = torch.full((batch_size,), t - 2, dtype=torch.long).cuda()
                 xt_sub1_bar = self.q_sample(x_start=xt_sub1_bar, x_end=x2_bar, t=step2)
 
-            x = img - xt_bar + xt_sub1_bar      # Cold Diffusion
+            x = img - xt_bar + xt_sub1_bar      # Cold Diffusion, fixed
             img = x
             t = t - 1
 
