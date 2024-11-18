@@ -133,7 +133,14 @@ diffusion = torch.nn.DataParallel(diffusion, device_ids=range(torch.cuda.device_
 
 print("=== train_steps:", args.train_steps)
 
-
+if args.debug:
+    args.save_folder = args.save_folder + "_debug"
+else:
+    if os.path.exists(args.save_folder):
+        number = os.listdir(args.save_folder).count
+        args.save_folder = args.save_folder + f"_{number}"
+        
+    
 trainer = Trainer(
     diffusion,
     args.data_path,

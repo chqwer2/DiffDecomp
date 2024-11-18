@@ -195,7 +195,9 @@ class GaussianDiffusion(nn.Module):
             t = self.num_timesteps
 
         orig = img
-        xt = img
+        
+        xt = apply_ksu_kernel(img, self.alphas[-1])  # img apply TODO
+        
         direct_recons = None
 
         while (t):
@@ -637,7 +639,7 @@ class Trainer(object):
                 og_img = noise.cuda()   # Noise
                 
                 # Or ... TODO
-                or_img = apply_ksu_kernel(img, self.alphas[-1])
+                og_img = img #apply_ksu_kernel(img, self.alphas[-1])
             
                 
                 # or_img = img * mask
@@ -660,12 +662,12 @@ class Trainer(object):
                 # 24, 1, 128, 128
                 
                 os.makedirs(self.results_folder, exist_ok=True)
-                utils.save_image(og_img, str(self.results_folder / f'{self.step}-xt-Noise-{milestone}.png'), nrow=6)
+                utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise-{milestone}.png'), nrow=6)
                 utils.save_image(full_recons, str(self.results_folder / f'{self.step}-full_recons-{milestone}.png'), nrow = 6)
                 utils.save_image(direct_recons, str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
-                # utils.save_image(xt, str(self.results_folder / f'{self.step}-sample-xt-{milestone}.png'), nrow=6)
+                utils.save_image(og_img, str(self.results_folder / f'{self.step}-img-{milestone}.png'), nrow=6)
                 utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
-                combine = torch.cat((og_img, full_recons, direct_recons, aux), 2)
+                combine = torch.cat((xt, full_recons, direct_recons, og_img, aux), 2)
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=6)
 
 
