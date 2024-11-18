@@ -1,7 +1,7 @@
 
 
 mamba activate diffmri
-cd /home/hao/repo/DiffDecomp/Cold-Diffusion/defading-generation-diffusion-pytorch
+cd /home/hao/repo/DiffDecomp/Cold-Diffusion/defading-diffusion-pytorch
 # cd STEP1.AutoencoderModel2D
 git stash
 git pull
@@ -31,4 +31,4 @@ python  train.py --time_steps 50 --train_steps 700000 \
             --remove_time_embed --residual --loss_type l1 \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
-            --initial_mask 11 --kernel_std 0.15 --reverse   #  --debug
+            --kernel_std 0.15  --debug

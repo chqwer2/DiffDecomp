@@ -17,7 +17,7 @@ pip install torch==2.4.0+cu124 torchvision==0.19.0+cu124 torchaudio==2.4.0+cu124
 
 pip install comet_ml     torchgeometry      albumentations   
 pip install --upgrade  matplotlib   
-pip install --upgrade  scikit-learn
+pip install --upgrade  scikit-learn   pytorch_msssim
 
 
 pip install --upgrade pandas scipy   scikit-image   scikit-video   scipy   pytorch_lightning       
