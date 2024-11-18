@@ -11,7 +11,6 @@ from typing import Optional, Sequence, Tuple, Union
 import numpy as np
 import torch
 
-# RandomMaskFunc, EquispacedMaskFractionFunc
 
 @contextlib.contextmanager
 def temp_seed(rng: np.random.RandomState, seed: Optional[Union[int, Tuple[int, ...]]]):

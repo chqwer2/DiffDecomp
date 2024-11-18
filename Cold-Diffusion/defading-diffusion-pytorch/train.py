@@ -1,4 +1,4 @@
-from defading_diffusion_pytorch import Unet, GaussianDiffusion, Trainer, Model
+from defading_diffusion_pytorch import GaussianDiffusion, Trainer, Model
 import torchvision
 import os
 import errno

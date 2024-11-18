@@ -1,3 +1,3 @@
-from defading_diffusion_pytorch.defading_diffusion_gaussian import GaussianDiffusion, Unet, Trainer
+from defading_diffusion_pytorch.defading_diffusion_gaussian import GaussianDiffusion, Trainer
 from defading_diffusion_pytorch.new_model import Model
 from defading_diffusion_pytorch.st_branch_model.model import TwoBranchModel

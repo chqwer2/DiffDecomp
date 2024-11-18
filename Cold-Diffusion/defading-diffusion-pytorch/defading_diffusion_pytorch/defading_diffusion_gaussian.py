@@ -23,6 +23,7 @@ import numpy as np
 import imageio
 
 # from torch.utils.tensorboard import SummaryWriter
+from .degradation import get_fade_kernels, get_kernels_with_schedule, get_ksu_kernel, apply_ksu_kernel
 
 try:
     from apex import amp
@@ -90,215 +91,12 @@ class EMA:
         return old * self.beta + (1 - self.beta) * new
 
 
-class Residual(nn.Module):
-    def __init__(self, fn):
-        super().__init__()
-        self.fn = fn
-
-    def forward(self, x, *args, **kwargs):
-        return self.fn(x, *args, **kwargs) + x
-
-
-class SinusoidalPosEmb(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.dim = dim
-
-    def forward(self, x):
-        device = x.device
-        half_dim = self.dim // 2
-        emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
-        emb = x[:, None] * emb[None, :]
-        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-        return emb
-
-
-def Upsample(dim):
-    return nn.ConvTranspose2d(dim, dim, 4, 2, 1)
-
-
-def Downsample(dim):
-    return nn.Conv2d(dim, dim, 4, 2, 1)
-
-
-class LayerNorm(nn.Module):
-    def __init__(self, dim, eps=1e-5):
-        super().__init__()
-        self.eps = eps
-        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))
-        self.b = nn.Parameter(torch.zeros(1, dim, 1, 1))
-
-    def forward(self, x):
-        var = torch.var(x, dim=1, unbiased=False, keepdim=True)
-        mean = torch.mean(x, dim=1, keepdim=True)
-        return (x - mean) / (var + self.eps).sqrt() * self.g + self.b
-
-
-class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
-        super().__init__()
-        self.fn = fn
-        self.norm = LayerNorm(dim)
-
-    def forward(self, x):
-        x = self.norm(x)
-        return self.fn(x)
-
-
-class ConvNextBlock(nn.Module):
-    """ https://arxiv.org/abs/2201.03545 """
-
-    def __init__(self, dim, dim_out, *, time_emb_dim=None, mult=2, norm=True):
-        super().__init__()
-        self.mlp = nn.Sequential(
-            nn.GELU(),
-            nn.Linear(time_emb_dim, dim)
-        ) if exists(time_emb_dim) else None
-
-        self.ds_conv = nn.Conv2d(dim, dim, 7, padding=3, groups=dim)
-
-        self.net = nn.Sequential(
-            LayerNorm(dim) if norm else nn.Identity(),
-            nn.Conv2d(dim, dim_out * mult, 3, padding=1),
-            nn.GELU(),
-            nn.Conv2d(dim_out * mult, dim_out, 3, padding=1)
-        )
-
-        self.res_conv = nn.Conv2d(dim, dim_out, 1) if dim != dim_out else nn.Identity()
-
-    def forward(self, x, time_emb=None):
-        h = self.ds_conv(x)
-
-        if exists(self.mlp):
-            assert exists(time_emb), 'time emb must be passed in'
-            condition = self.mlp(time_emb)
-            h = h + rearrange(condition, 'b c -> b c 1 1')
-
-        h = self.net(h)
-        return h + self.res_conv(x)
-
-
-class LinearAttention(nn.Module):
-    def __init__(self, dim, heads=4, dim_head=32):
-        super().__init__()
-        self.scale = dim_head ** -0.5
-        self.heads = heads
-        hidden_dim = dim_head * heads
-        self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias=False)
-        self.to_out = nn.Conv2d(hidden_dim, dim, 1)
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-        qkv = self.to_qkv(x).chunk(3, dim=1)
-        q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> b h c (x y)', h=self.heads), qkv)
-        q = q * self.scale
-
-        k = k.softmax(dim=-1)
-        context = torch.einsum('b h d n, b h e n -> b h d e', k, v)
-
-        out = torch.einsum('b h d e, b h d n -> b h e n', context, q)
-        out = rearrange(out, 'b h c (x y) -> b (h c) x y', h=self.heads, x=h, y=w)
-        return self.to_out(out)
-
-
-class Unet(nn.Module):
-    def __init__(
-            self,
-            dim,
-            out_dim=None,
-            dim_mults=(1, 2, 4, 8),
-            channels=3,
-            with_time_emb=True,
-            residual=False
-    ):
-        super().__init__()
-        self.channels = channels
-        self.residual = residual
-
-        dims = [channels, *map(lambda m: dim * m, dim_mults)]
-        in_out = list(zip(dims[:-1], dims[1:]))
-
-        if with_time_emb:
-            time_dim = dim
-            self.time_mlp = nn.Sequential(
-                SinusoidalPosEmb(dim),
-                nn.Linear(dim, dim * 4),
-                nn.GELU(),
-                nn.Linear(dim * 4, dim)
-            )
-        else:
-            time_dim = None
-            self.time_mlp = None
-
-        self.downs = nn.ModuleList([])
-        self.ups = nn.ModuleList([])
-        num_resolutions = len(in_out)
-
-        for ind, (dim_in, dim_out) in enumerate(in_out):
-            is_last = ind >= (num_resolutions - 1)
-
-            self.downs.append(nn.ModuleList([
-                ConvNextBlock(dim_in, dim_out, time_emb_dim=time_dim, norm=ind != 0),
-                ConvNextBlock(dim_out, dim_out, time_emb_dim=time_dim),
-                Residual(PreNorm(dim_out, LinearAttention(dim_out))),
-                Downsample(dim_out) if not is_last else nn.Identity()
-            ]))
-
-        mid_dim = dims[-1]
-        self.mid_block1 = ConvNextBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
-        self.mid_attn = Residual(PreNorm(mid_dim, LinearAttention(mid_dim)))
-        self.mid_block2 = ConvNextBlock(mid_dim, mid_dim, time_emb_dim=time_dim)
-
-        for ind, (dim_in, dim_out) in enumerate(reversed(in_out[1:])):
-            is_last = ind >= (num_resolutions - 1)
-
-            self.ups.append(nn.ModuleList([
-                ConvNextBlock(dim_out * 2, dim_in, time_emb_dim=time_dim),
-                ConvNextBlock(dim_in, dim_in, time_emb_dim=time_dim),
-                Residual(PreNorm(dim_in, LinearAttention(dim_in))),
-                Upsample(dim_in) if not is_last else nn.Identity()
-            ]))
-
-        out_dim = default(out_dim, channels)
-        self.final_conv = nn.Sequential(
-            ConvNextBlock(dim, dim),
-            nn.Conv2d(dim, out_dim, 1)
-        )
-
-    def forward(self, x, time):
-        orig_x = x
-        t = self.time_mlp(time) if exists(self.time_mlp) else None
-
-        h = []
-
-        for convnext, convnext2, attn, downsample in self.downs:
-            x = convnext(x, t)
-            x = convnext2(x, t)
-            x = attn(x)
-            h.append(x)
-            x = downsample(x)
-
-        x = self.mid_block1(x, t)
-        x = self.mid_attn(x)
-        x = self.mid_block2(x, t)
-
-        for convnext, convnext2, attn, upsample in self.ups:
-            x = torch.cat((x, h.pop()), dim=1)
-            x = convnext(x, t)
-            x = convnext2(x, t)
-            x = attn(x)
-            x = upsample(x)
-        if self.residual:
-            return self.final_conv(x) + orig_x
-
-        return self.final_conv(x)
-
 
 class GaussianDiffusion(nn.Module):
     def __init__(
             self,
-            defade_fn,
+            diffusion_type,
+            restore_fn,
             *,
             image_size,
             device_of_kernel,
@@ -314,69 +112,78 @@ class GaussianDiffusion(nn.Module):
         super().__init__()
         self.channels = channels
         self.image_size = image_size
-        self.defade_fn = defade_fn
+        self.restore_fn = restore_fn
+
+        # self.backbone = diffusion_type.split('_')[0]
+
+
+
         self.device_of_kernel = device_of_kernel
         self.num_timesteps = int(timesteps)
         self.loss_type = loss_type
         self.kernel_std = kernel_std
         self.initial_mask = initial_mask
         self.fade_routine = fade_routine
-        self.fade_kernels = self.get_kernels()
+        self.backbone = diffusion_type.split('_')[0]
+        self.degradation_type = diffusion_type.split('_')[1]
+
+        if self.degradation_type == 'fade':
+            self.fade_kernels = get_fade_kernels(fade_routine, self.num_timesteps, image_size, kernel_std, initial_mask)
+        elif self.degradation_type == "kspace":
+            self.kspace_kernels = get_ksu_kernel(self.num_timesteps, image_size)
+        else:
+            raise NotImplementedError()
+
         self.sampling_routine = sampling_routine
         self.discrete = discrete
 
-    def get_fade_kernel(self, dims, std):
-        fade_kernel = tgm.image.get_gaussian_kernel2d(dims, std)
-        fade_kernel = fade_kernel / torch.max(fade_kernel)
-        fade_kernel = torch.ones_like(fade_kernel) - fade_kernel
-        # if self.device_of_kernel == 'cuda':
-        #     fade_kernel = fade_kernel.cuda()
-        fade_kernel = fade_kernel[1:, 1:]
-        return fade_kernel
 
-    def get_kernels(self):
-        kernels = []
-        for i in range(self.num_timesteps):
-            if self.fade_routine == 'Incremental':
-                kernels.append(self.get_fade_kernel((self.image_size + 1, self.image_size + 1),
-                                                    (self.kernel_std * (i + self.initial_mask),
-                                                     self.kernel_std * (i + self.initial_mask))))
-            elif self.fade_routine == 'Constant':
-                kernels.append(self.get_fade_kernel(
-                    (self.image_size + 1, self.image_size + 1),
-                    (self.kernel_std, self.kernel_std)))
-            elif self.fade_routine == 'Random_Incremental':
-                kernels.append(self.get_fade_kernel((2 * self.image_size + 1, 2 * self.image_size + 1),
-                                                    (self.kernel_std * (i + self.initial_mask),
-                                                     self.kernel_std * (i + self.initial_mask))))
-        return torch.stack(kernels)
 
     @torch.no_grad()
-    def sample(self, batch_size=16, faded_recon_sample=None, t=None):
-
-        rand_fade_kernels = None
+    def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
+        # TODO
+        rand_kernels = None
         sample_device = faded_recon_sample.device
-        if 'Random' in self.fade_routine:
-            rand_fade_kernels = []
-            rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
-            rand_y = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
-            for i in range(batch_size):
-                rand_fade_kernels.append(torch.stack(
+        if self.degradation_type == 'fade':
+            if 'Random' in self.fade_routine:
+                rand_kernels = []
+                rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
+                rand_y = torch.randint(0, self.image_size + 1, (batch_size,), device=sample_device).long()
+                for i in range(batch_size):
+                    rand_kernels.append(torch.stack(
+                        [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                         rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+                rand_kernels = torch.stack(rand_kernels)
+
+        elif self.degradation_type == 'kspace':
+            rand_kernels = []
+            rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
+
+            for i in range(batch_size, ):
+                rand_kernels.append(torch.stack(
                     [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
-            rand_fade_kernels = torch.stack(rand_fade_kernels)
+                     : self.image_size] for j in range(len(self.fade_kernels))]))
+            rand_kernels = torch.stack(rand_kernels)
+
         if t is None:
             t = self.num_timesteps
 
         for i in range(t):
             with torch.no_grad():
-                if rand_fade_kernels is not None:
-                    faded_recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                      rand_fade_kernels[:, i].to(sample_device),
-                                                      rand_fade_kernels[:, i].to(sample_device)],
-                                                     1) * faded_recon_sample
-                else:
-                    faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+                if self.degradation_type == 'fade':
+                    if rand_kernels is not None:
+                        faded_recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                          rand_kernels[:, i].to(sample_device),
+                                                          rand_kernels[:, i].to(sample_device)],
+                                                         1) * faded_recon_sample
+                    else:
+                        faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+
+                elif self.degradation_type == 'kspace':
+                    if rand_kernels is not None:
+                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                    else:
+                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -390,34 +197,64 @@ class GaussianDiffusion(nn.Module):
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
-            recon_sample = self.defade_fn(faded_recon_sample, step)
+            if self.backbone == "unet":
+                recon_sample = self.restore_fn(faded_recon_sample, step)
+            elif self.backbone == "twobranch":
+                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
+                recon_sample = recon_sample // 2 + recon_fre // 2
+
 
             if direct_recons is None:
                 direct_recons = recon_sample
 
-            if self.sampling_routine == 'default':
-                for i in range(t - 1):
-                    with torch.no_grad():
-                        if rand_fade_kernels is not None:
-                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
-                        else:
-                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
-                faded_recon_sample = recon_sample
+            if self.degradation_type == 'fade':
+                if self.sampling_routine == 'default':
+                    for i in range(t - 1):
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device)], 1) * recon_sample
+                            else:
+                                recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+                    faded_recon_sample = recon_sample
 
-            elif self.sampling_routine == 'x0_step_down':
-                for i in range(t):
-                    with torch.no_grad():
-                        recon_sample_sub_1 = recon_sample
-                        if rand_fade_kernels is not None:
-                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
-                        else:
-                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+                elif self.sampling_routine == 'x0_step_down':
+                    for i in range(t):
+                        with torch.no_grad():
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device)], 1) * recon_sample
+                            else:
+                                recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
 
-                faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                    faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
+            elif self.degradation_type == 'kspace':
+                # faded_recon_sample = recon_sample
+                if self.sampling_routine == 'default':
+                    for i in range(t - 1):
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                            else:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+
+                    faded_recon_sample = recon_sample
+
+                elif self.sampling_routine == 'x0_step_down':
+                    for i in range(t):
+                        with torch.no_grad():
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                            else:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+
+                    faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
 
             recon_sample = faded_recon_sample
             t -= 1
@@ -425,18 +262,32 @@ class GaussianDiffusion(nn.Module):
         return xt, direct_recons, recon_sample
 
     @torch.no_grad()
-    def all_sample(self, batch_size=16, faded_recon_sample=None, t=None, times=None):
-        rand_fade_kernels = None
+    def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
+        # TODO
+        print("Running into all_sample...")
+        rand_kernels = None
         sample_device = faded_recon_sample.device
-        if 'Random' in self.fade_routine:
-            rand_fade_kernels = []
+        if self.degradation_type == 'fade':
+            if 'Random' in self.fade_routine:
+                rand_kernels = []
+                rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
+                rand_y = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
+                for i in range(batch_size, ):
+                    rand_kernels.append(torch.stack(
+                        [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                         rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+                rand_kernels = torch.stack(rand_kernels)
+
+        elif self.degradation_type == 'kspace':
+            rand_kernels = []
             rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
-            rand_y = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
+
             for i in range(batch_size, ):
-                rand_fade_kernels.append(torch.stack(
+                rand_kernels.append(torch.stack(
                     [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
-            rand_fade_kernels = torch.stack(rand_fade_kernels)
+                     : self.image_size] for j in range(len(self.fade_kernels))]))
+            rand_kernels = torch.stack(rand_kernels)
+
         if t is None:
             t = self.num_timesteps
         if times is None:
@@ -444,12 +295,19 @@ class GaussianDiffusion(nn.Module):
 
         for i in range(t):
             with torch.no_grad():
-                if 'Random' in self.fade_routine:
-                    faded_recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                      rand_fade_kernels[:, i].to(sample_device),
-                                                      rand_fade_kernels[:, i].to(sample_device)], 1) * faded_recon_sample
-                else:
-                    faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+                if self.degradation_type == 'fade':
+                    if 'Random' in self.fade_routine:
+                        faded_recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                          rand_kernels[:, i].to(sample_device),
+                                                          rand_kernels[:, i].to(sample_device)], 1) * faded_recon_sample
+                    else:
+                        faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
+                elif self.degradation_type == 'kspace':
+                    if rand_kernels is not None:
+                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                    else:
+                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
+
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -462,31 +320,60 @@ class GaussianDiffusion(nn.Module):
 
         while times:
             step = torch.full((batch_size,), times - 1, dtype=torch.long).cuda()
-            recon_sample = self.defade_fn(faded_recon_sample, step)
+            if self.backbone == "unet":
+                recon_sample = self.restore_fn(faded_recon_sample, step)
+            elif self.backbone == "twobranch":
+                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
+                recon_sample = recon_sample // 2 + recon_fre // 2
             x0_list.append(recon_sample)
 
-            if self.sampling_routine == 'default':
-                for i in range(times - 1):
-                    with torch.no_grad():
-                        if rand_fade_kernels is not None:
-                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
-                        else:
-                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
-                faded_recon_sample = recon_sample
+            if self.degradation_type == 'fade':
+                if self.sampling_routine == 'default':
+                    for i in range(times - 1):
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device)], 1) * recon_sample
+                            else:
+                                recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+                    faded_recon_sample = recon_sample
 
-            elif self.sampling_routine == 'x0_step_down':
-                for i in range(times):
-                    with torch.no_grad():
-                        recon_sample_sub_1 = recon_sample
-                        if rand_fade_kernels is not None:
-                            recon_sample = torch.stack([rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device),
-                                                        rand_fade_kernels[:, i].to(sample_device)], 1) * recon_sample
-                        else:
-                            recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
-                faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                elif self.sampling_routine == 'x0_step_down':
+                    for i in range(times):
+                        with torch.no_grad():
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                recon_sample = torch.stack([rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device),
+                                                            rand_kernels[:, i].to(sample_device)], 1) * recon_sample
+                            else:
+                                recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
+                    faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
+            elif self.degradation_type == 'kspace':
+                # faded_recon_sample = recon_sample
+                if self.sampling_routine == 'default':
+                    for i in range(t - 1):
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                            else:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+
+                    faded_recon_sample = recon_sample
+
+                elif self.sampling_routine == 'x0_step_down':
+                    for i in range(t):
+                        with torch.no_grad():
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                            else:
+                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+
+                    faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
 
             xt_list.append(faded_recon_sample)
             times -= 1
@@ -495,27 +382,50 @@ class GaussianDiffusion(nn.Module):
 
     def q_sample(self, x_start, t):
         with torch.no_grad():
-            rand_fade_kernels = None
-            if 'Random' in self.fade_routine:
-                rand_fade_kernels = []
-                rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
-                rand_y = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
-                for i in range(x_start.size(0),):
-                    rand_fade_kernels.append(torch.stack(
-                        [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                         rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
-                rand_fade_kernels = torch.stack(rand_fade_kernels)
+            rand_kernels = None
+            
+        if self.degradation_type == 'fade':
+                if 'Random' in self.fade_routine:
+                    rand_kernels = []
+                    rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+                    rand_y = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+                    for i in range(x_start.size(0),):
+                        rand_kernels.append(torch.stack(
+                            [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                             rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+                    rand_kernels = torch.stack(rand_kernels)
+
+        elif self.degradation_type == 'kspace':
+            rand_kernels = []
+            rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+
+            for i in range(x_start.size(0), ):
+                rand_kernels.append(torch.stack(
+                    [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                     : self.image_size] for j in range(len(self.fade_kernels))]))
+            rand_kernels = torch.stack(rand_kernels)
+            
+        
         max_iters = torch.max(t)
         all_fades = []
         x = x_start
         for i in range(max_iters + 1):
             with torch.no_grad():
-                if rand_fade_kernels is not None:
-                    x = torch.stack([rand_fade_kernels[:, i],
-                                     rand_fade_kernels[:, i],
-                                     rand_fade_kernels[:, i]], 1) * x
-                else:
-                    x = self.fade_kernels[i] * x
+                if self.degradation_type == 'fade':
+                    if rand_kernels is not None:
+                        x = torch.stack([rand_kernels[:, i],
+                                         rand_kernels[:, i],
+                                         rand_kernels[:, i]], 1) * x
+
+                    else:
+                        x = self.fade_kernels[i] * x
+
+                elif self.degradation_type == 'kspace':
+                    if rand_kernels is not None:
+                        x, x_fre = apply_ksu_kernel(x, rand_kernels[i])
+                    else:
+                        x, x_fre = apply_ksu_kernel(x, self.kspace_kernels[i])
+
                 all_fades.append(x)
 
         all_fades = torch.stack(all_fades)
@@ -534,10 +444,7 @@ class GaussianDiffusion(nn.Module):
             choose_fade = choose_fade * 2 - 1
         return choose_fade
 
-    def p_losses(self, x_start, t):
-        x_fade = self.q_sample(x_start=x_start, t=t)
-        x_recon = self.defade_fn(x_fade, t)
-
+    def reconstruct_loss(self, x_start, x_recon):
         if self.loss_type == 'l1':
             loss = (x_start - x_recon).abs().mean()
         elif self.loss_type == 'l2':
@@ -546,106 +453,38 @@ class GaussianDiffusion(nn.Module):
             raise NotImplementedError()
         return loss
 
+    def p_losses(self, x_start, aux, t):
+        x_mix = self.q_sample(x_start=x_start, t=t)
+
+        if self.backbone == 'unet':
+            x_recon = self.restore_fn(x_mix, t)
+            loss = self.reconstruct_loss(x_start, x_recon)
+
+        elif self.backbone == 'twobranch':
+            x_recon, x_recon_fre = self.restore_fn(x_mix, aux, t)
+
+            loss_spatial = self.reconstruct_loss(x_start, x_recon)
+            loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
+            loss = loss_spatial + loss_freq
+
+            fft_weight = 0.01
+            amp = self.amploss(x_recon_fre, x_start)
+            pha = self.phaloss(x_recon_fre, x_start)
+
+            loss += fft_weight * (amp + pha)
+
+        return loss
+
     def forward(self, x, *args, **kwargs):
         b, c, h, w, device, img_size, = *x.shape, x.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
-        self.fade_kernels = self.fade_kernels.to(device)
+        if self.degradation_type == 'fade':
+            self.fade_kernels = self.fade_kernels.to(device)
+        elif self.degradation_type == 'kspace':
+            self.kspace_kernels = self.kspace_kernels.to(device)
         return self.p_losses(x, t, *args, **kwargs)
 
-
-class Dataset(data.Dataset):
-    def __init__(self, folder, image_size, exts=['jpg', 'jpeg', 'png']):
-        super().__init__()
-        self.folder = folder
-        self.image_size = image_size
-        self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
-
-        self.transform = transforms.Compose([
-            transforms.Resize(image_size),
-            transforms.CenterCrop(image_size),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 2) - 1)
-        ])
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(path)
-        return self.transform(img)
-
-
-class DatasetCifar10(data.Dataset):
-    def __init__(self, folder, image_size, exts=['jpg', 'jpeg', 'png']):
-        super().__init__()
-        self.folder = folder
-        self.image_size = image_size
-        self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
-
-        self.transform = transforms.Compose([
-            transforms.RandomCrop(image_size, padding=4),
-            transforms.Resize(image_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 2) - 1)
-        ])
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(path)
-        return self.transform(img)
-
-
-class DatasetCelebA(data.Dataset):
-    def __init__(self, folder, image_size, exts=['jpg', 'jpeg', 'png']):
-        super().__init__()
-        self.folder = folder
-        self.image_size = image_size
-        self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
-
-        self.transform = transforms.Compose([
-            transforms.Resize((int(image_size*1.12), int(image_size*1.12))),
-            transforms.RandomCrop(image_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 2) - 1)
-        ])
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(path)
-        return self.transform(img)
-
-
-class DatasetCelebATest(data.Dataset):
-    def __init__(self, folder, image_size, exts=['jpg', 'jpeg', 'png']):
-        super().__init__()
-        self.folder = folder
-        self.image_size = image_size
-        self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
-
-        self.transform = transforms.Compose([
-            transforms.Resize((int(image_size * 1.12), int(image_size * 1.12))),
-            transforms.CenterCrop(image_size),
-            transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 2) - 1)
-        ])
-
-    def __len__(self):
-        return len(self.paths)
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(path)
-        return self.transform(img)
 
 
 class Trainer(object):
@@ -666,7 +505,12 @@ class Trainer(object):
             save_and_sample_every=10000,
             results_folder='./results',
             load_path=None,
-            dataset=None
+            dataset=None,
+            shuffle=True,
+            domain=None,
+            aux_modality=None,
+            num_channels=1,
+            debug=False
     ):
         super().__init__()
         self.model = diffusion_model
@@ -682,14 +526,22 @@ class Trainer(object):
         self.gradient_accumulate_every = gradient_accumulate_every
         self.train_num_steps = train_num_steps
 
-        if dataset == 'cifar10':
-            self.ds = DatasetCifar10(folder, image_size)
-        elif dataset == 'celebA':
-            self.ds = DatasetCelebA(folder, image_size)
-        elif dataset == 'celebA_test':
-            self.ds = DatasetCelebATest(folder, image_size)
+        if dataset == 'train':
+            print(dataset, "DA used")
+            self.ds = Dataset_Aug1(folder, image_size)
+        elif dataset.lower() == 'brain':
+            print(dataset, "Brain DA used")
+            # mode, base_dir, image_size, nclass, domains, aux_modality,
+            self.ds = BrainDataset("train", folder, image_size, 4,
+                                   debug=debug,
+                                   domains=domain,
+                                   num_channels=num_channels,
+                                   aux_modality=aux_modality)  # mode, base_dir, domains:
         else:
+            print(dataset)
             self.ds = Dataset(folder, image_size)
+
+
         self.dl = cycle(
             data.DataLoader(self.ds,
                             batch_size=train_batch_size,
