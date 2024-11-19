@@ -33,4 +33,4 @@ python  train.py --time_steps 50 --train_steps 700000 \
             --remove_time_embed --residual \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
-            --kernel_std 0.15  --debug
+            --kernel_std 0.15  # --debug

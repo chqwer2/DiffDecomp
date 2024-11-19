@@ -525,7 +525,7 @@ class Trainer(object):
             fp16=False,
             step_start_ema=2000,
             update_ema_every=10,
-            save_and_sample_every=10000,
+            save_and_sample_every=1000,
             results_folder='./results',
             load_path=None,
             dataset=None,
@@ -651,7 +651,9 @@ class Trainer(object):
 
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
-                print(f'{self.step}: {loss.item()}')
+                if (self.step + 1) % (self.step//100) == 0:
+                    print(f'{self.step}: {loss.item()}')
+
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
             # writer.add_scalar("Loss/train", loss.item(), self.step)

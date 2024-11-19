@@ -171,6 +171,7 @@ trainer = Trainer(
     train_num_steps=args.train_steps,
     gradient_accumulate_every=2,
     ema_decay=0.995,
+    save_and_sample_every=10000,
     fp16=False,
     results_folder=args.save_folder,
     load_path=args.load_path,
