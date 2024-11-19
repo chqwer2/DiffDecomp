@@ -128,19 +128,23 @@ class GaussianDiffusion(nn.Module):
 
         if self.degradation_type == 'fade':
             self.fade_kernels = get_fade_kernels(fade_routine, self.num_timesteps, image_size, kernel_std, initial_mask)
-            print("=== self.fade_kernelss shape = ", self.fade_kernels.shape)
+            # print("=== self.fade_kernels shape = ", self.fade_kernels.shape)  # [5, 256, 256]
 
         elif self.degradation_type == "kspace":
-            self.kspace_kernels = get_ksu_kernel(self.num_timesteps, image_size)
-            self.kspace_kernels =  torch.stack(self.kspace_kernels)
-            print("=== self.kspace_kernels shape = ", self.kspace_kernels.shape)
+            self.kspace_kernels = get_ksu_kernel(self.num_timesteps, 2 * image_size)
+            self.kspace_kernels =  torch.stack(self.kspace_kernels).squeeze(1)
+            # print("=== self.kspace_kernels shape = ", self.kspace_kernels.shape)   # [5, 256, 256]
         else:
             raise NotImplementedError()
 
         self.sampling_routine = sampling_routine
         self.discrete = discrete
 
-
+        # Frequency Loss
+        if self.backbone == 'twobranch':
+            self.amploss = self.restore_fn.amploss  # .to(self.device, non_blocking=True)
+            self.phaloss = self.restore_fn.phaloss  # .to(self.device, non_blocking=True)
+            self.lpips = self.restore_fn.perceptual_model  # .to(self.device, non_blocking=True)
 
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
@@ -386,15 +390,15 @@ class GaussianDiffusion(nn.Module):
             rand_kernels = None
             
         if self.degradation_type == 'fade':
-                if 'Random' in self.fade_routine:
-                    rand_kernels = []
-                    rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
-                    rand_y = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
-                    for i in range(x_start.size(0),):
-                        rand_kernels.append(torch.stack(
-                            [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                             rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
-                    rand_kernels = torch.stack(rand_kernels)
+            if 'Random' in self.fade_routine:
+                rand_kernels = []
+                rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+                rand_y = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+                for i in range(x_start.size(0),):
+                    rand_kernels.append(torch.stack(
+                        [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                         rand_y[i]:rand_y[i] + self.image_size] for j in range(len(self.fade_kernels))]))
+                rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
             rand_kernels = []
@@ -406,7 +410,8 @@ class GaussianDiffusion(nn.Module):
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
             
-        
+        # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
+
         max_iters = torch.max(t)
         all_fades = []
         x = x_start
@@ -414,22 +419,34 @@ class GaussianDiffusion(nn.Module):
             with torch.no_grad():
                 if self.degradation_type == 'fade':
                     if rand_kernels is not None:
-                        x = torch.stack([rand_kernels[:, i],
+                        k = torch.stack([rand_kernels[:, i],
                                          rand_kernels[:, i],
-                                         rand_kernels[:, i]], 1) * x
+                                         rand_kernels[:, i]], 1)
+
 
                     else:
-                        x = self.fade_kernels[i] * x
+                        k = self.fade_kernels[i]   # fade k=torch.Size([24, 3, 128, 128]),
+                                                   # x=torch.Size([24, 1, 128, 128])
+                    # print(f"fade k={k.shape}, x={x.shape}")
+                    x = k * x
+
+                    # === all_fades shape: torch.Size([5, 24, 5, 128, 128])
 
                 elif self.degradation_type == 'kspace':
+                                                  # fade k=torch.Size([5, 128, 128]), x=torch.Size([24, 1, 128, 128])
                     if rand_kernels is not None:
-                        x = apply_ksu_kernel(x, rand_kernels[i])
+                        # print(f"kspace randkeynel k={rand_kernels[:, i].shape}, x={x.shape}")
+                        k = torch.stack([rand_kernels[:, i]], 1)
+                        x = apply_ksu_kernel(x, k)
                     else:
+                        # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
                         x = apply_ksu_kernel(x, self.kspace_kernels[i])
 
                 all_fades.append(x)
 
-        all_fades = torch.stack(all_fades)
+        all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
+        # print("=== all_fades shape:", all_fades.shape)
+
 
         choose_fade = []
         for step in range(t.shape[0]):
@@ -455,7 +472,12 @@ class GaussianDiffusion(nn.Module):
         return loss
 
     def p_losses(self, x_start, aux, t):
+        self.debug_print = False
         x_mix = self.q_sample(x_start=x_start, t=t)
+
+        if self.debug_print:
+            # print("x_mix shape:", x_mix.shape)  # x_mix shape: torch.Size([24, 5, 128, 128]
+            self.debug_print = False
 
         if self.backbone == 'unet':
             x_recon = self.restore_fn(x_mix, t)

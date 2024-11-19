@@ -86,7 +86,7 @@ def get_ksu_mask(ksu_mask_type, af, cf, pe, fe, seed=0):
     else:
         raise NotImplementedError
 
-    print("return mask = ", mask.shape)
+    # print("return mask = ", mask.shape)
     return mask
 
 
