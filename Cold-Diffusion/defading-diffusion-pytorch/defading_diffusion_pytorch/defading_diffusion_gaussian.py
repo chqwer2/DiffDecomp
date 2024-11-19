@@ -128,6 +128,7 @@ class GaussianDiffusion(nn.Module):
 
         if self.degradation_type == 'fade':
             self.fade_kernels = get_fade_kernels(fade_routine, self.num_timesteps, image_size, kernel_std, initial_mask)
+            print("=== self.fade_kernelss shape = ", self.fade_kernels.shape)
 
         elif self.degradation_type == "kspace":
             self.kspace_kernels = get_ksu_kernel(self.num_timesteps, image_size)

@@ -86,6 +86,7 @@ def get_ksu_mask(ksu_mask_type, af, cf, pe, fe, seed=0):
     else:
         raise NotImplementedError
 
+    print("return mask = ", mask.shape)
     return mask
 
 
@@ -112,6 +113,7 @@ def get_ksu_kernel(timesteps, image_size,
     elif ksu_routine == 'LogSamplingRate':
         # Generate the sampling rate list with torch.logspace, reversed, and skip the first element
         sr_list = torch.logspace(start=-2, end=0, steps=timesteps + 1).flip(0)
+        print("sr_list length: ", sr_list.shape)
 
         for sr in sr_list:
             af = 1 / sr
@@ -147,6 +149,8 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
         fft = fft * mask
     except:
         print("Error in transforming fft:", fft.shape, mask.shape)
+        fft = fft * mask
+
     x_ksu = ifft2(ifftshift(fft))
 
     if pixel_range == '0_1':
