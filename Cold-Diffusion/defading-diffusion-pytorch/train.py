@@ -4,7 +4,7 @@ import os
 import errno
 import shutil
 import argparse
-from defading_diffusion_pytorch import Unet, TwoBranchModel
+from defading_diffusion_pytorch import TwoBranchModel
 import torch
 
 def create_folder(path):

@@ -27,8 +27,8 @@ python  train.py --time_steps 50 --train_steps 700000 \
             --save_folder $save_folder \
             --data_path $datapath --dataset $dataset \
             --domain $domain --aux_modality $aux_modality \
-            --train_routine Final --sampling_routine default \
-            --remove_time_embed --residual --loss_type l1 \
+            --sampling_routine default \
+            --remove_time_embed --residual \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
             --kernel_std 0.15  --debug

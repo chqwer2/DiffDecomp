@@ -279,7 +279,7 @@ class TwoBranchModel(pl.LightningModule):
         num_group = 4
         # lr = self.lr
         self.use_fre_mix = False
-        
+
         self.model = ModelBackbone(num_features, act, base_num_every_group, num_channels)
         
         self.image_discriminator = NLayerDiscriminator(
