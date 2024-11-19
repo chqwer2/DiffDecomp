@@ -24,6 +24,7 @@ import imageio
 
 # from torch.utils.tensorboard import SummaryWriter
 from .degradation import get_fade_kernels, get_ksu_kernel, apply_ksu_kernel
+from dataset import Dataset, Dataset_Aug1, BrainDataset
 
 try:
     from apex import amp
@@ -116,8 +117,6 @@ class GaussianDiffusion(nn.Module):
 
         # self.backbone = diffusion_type.split('_')[0]
 
-
-
         self.device_of_kernel = device_of_kernel
         self.num_timesteps = int(timesteps)
         self.loss_type = loss_type
@@ -129,8 +128,11 @@ class GaussianDiffusion(nn.Module):
 
         if self.degradation_type == 'fade':
             self.fade_kernels = get_fade_kernels(fade_routine, self.num_timesteps, image_size, kernel_std, initial_mask)
+
         elif self.degradation_type == "kspace":
             self.kspace_kernels = get_ksu_kernel(self.num_timesteps, image_size)
+            self.kspace_kernels =  torch.stack(self.kspace_kernels)
+            print("=== self.kspace_kernels shape = ", self.kspace_kernels.shape)
         else:
             raise NotImplementedError()
 
@@ -161,8 +163,8 @@ class GaussianDiffusion(nn.Module):
 
             for i in range(batch_size, ):
                 rand_kernels.append(torch.stack(
-                    [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     : self.image_size] for j in range(len(self.fade_kernels))]))
+                    [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                     : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
 
         if t is None:
@@ -399,8 +401,8 @@ class GaussianDiffusion(nn.Module):
 
             for i in range(x_start.size(0), ):
                 rand_kernels.append(torch.stack(
-                    [self.fade_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     : self.image_size] for j in range(len(self.fade_kernels))]))
+                    [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+                     : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
             
         
@@ -480,7 +482,7 @@ class GaussianDiffusion(nn.Module):
         if self.degradation_type == 'fade':
             self.fade_kernels = self.fade_kernels.to(device)
         elif self.degradation_type == 'kspace':
-            self.kspace_kernels = self.kspace_kernels.to(device)
+            self.kspace_kernels = (self.kspace_kernels.to(device))
         return self.p_losses(x1, x2, t, *args, **kwargs)
 
 
@@ -558,8 +560,10 @@ class Trainer(object):
             (self.model, self.ema_model), self.opt = amp.initialize([self.model, self.ema_model], self.opt,
                                                                     opt_level='O1')
 
+        os.makedirs(results_folder, exist_ok=True)
         self.results_folder = Path(results_folder)
-        self.results_folder.mkdir(exist_ok=True)
+        # self.results_folder.mkdir(exist_ok=True)
+
 
         self.reset_parameters()
 

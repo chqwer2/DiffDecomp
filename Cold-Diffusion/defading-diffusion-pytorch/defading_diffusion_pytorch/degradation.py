@@ -143,7 +143,10 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
         raise ValueError(f"Unknown pixel range {pixel_range}.")
 
     fft = fftshift(fft2(x_start))
-    fft = fft * mask
+    try:
+        fft = fft * mask
+    except:
+        print("Error in transforming fft:", fft.shape, mask.shape)
     x_ksu = ifft2(ifftshift(fft))
 
     if pixel_range == '0_1':

@@ -146,8 +146,8 @@ diffusion = GaussianDiffusion(
     kernel_std=args.kernel_std,
     fade_routine=args.fade_routine,
     sampling_routine=args.sampling_routine,
-    discrete=args.discrete,
-    num_channels=args.num_channels     # ?
+    discrete=args.discrete
+    # num_channels=args.num_channels     # ?
 ).cuda()
 
 
