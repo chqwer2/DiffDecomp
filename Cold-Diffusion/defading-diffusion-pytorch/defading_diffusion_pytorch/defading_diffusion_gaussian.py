@@ -181,9 +181,9 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
                     else:
-                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -200,7 +200,7 @@ class GaussianDiffusion(nn.Module):
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
             elif self.backbone == "twobranch":
-                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, x_fre, aux, step)
+                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
                 recon_sample = recon_sample // 2 + recon_fre // 2
 
 
@@ -238,25 +238,22 @@ class GaussianDiffusion(nn.Module):
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
                     faded_recon_sample = recon_sample
 
                 elif self.sampling_routine == 'x0_step_down':
-                    x_fre_sample = None
                     for i in range(t):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
-                            x_fre_sample_sub_1 = x_fre_sample
                             if rand_kernels is not None:
-                                recon_sample, x_fre_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
-                                recon_sample, x_fre_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
-                    x_fre              = x_fre - recon_fre + x_fre_sample_sub_1
 
             recon_sample = faded_recon_sample
             t -= 1
@@ -306,9 +303,9 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
                     else:
-                        faded_recon_sample, x_fre = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
 
 
         if self.discrete:
@@ -325,7 +322,7 @@ class GaussianDiffusion(nn.Module):
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
             elif self.backbone == "twobranch":
-                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, x_fre, aux, step)
+                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
                 recon_sample = recon_sample // 2 + recon_fre // 2
             x0_list.append(recon_sample)
 
@@ -342,18 +339,15 @@ class GaussianDiffusion(nn.Module):
                     faded_recon_sample = recon_sample
 
                 elif self.sampling_routine == 'x0_step_down':
-                    x_fre_sample = None
                     for i in range(t):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
-                            x_fre_sample_sub_1 = x_fre_sample
                             if rand_kernels is not None:
-                                recon_sample, x_fre_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
-                                recon_sample, x_fre_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
-                    x_fre = x_fre - recon_fre + x_fre_sample_sub_1
 
             elif self.degradation_type == 'kspace':
                 # faded_recon_sample = recon_sample
@@ -361,9 +355,9 @@ class GaussianDiffusion(nn.Module):
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
                     faded_recon_sample = recon_sample
 
@@ -372,9 +366,9 @@ class GaussianDiffusion(nn.Module):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
-                                recon_sample, x_fre = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
@@ -426,9 +420,9 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        x, x_fre = apply_ksu_kernel(x, rand_kernels[i])
+                        x = apply_ksu_kernel(x, rand_kernels[i])
                     else:
-                        x, x_fre = apply_ksu_kernel(x, self.kspace_kernels[i])
+                        x = apply_ksu_kernel(x, self.kspace_kernels[i])
 
                 all_fades.append(x)
 
@@ -458,14 +452,14 @@ class GaussianDiffusion(nn.Module):
         return loss
 
     def p_losses(self, x_start, aux, t):
-        x_mix, x_mix_fre = self.q_sample(x_start=x_start, t=t)
+        x_mix = self.q_sample(x_start=x_start, t=t)
 
         if self.backbone == 'unet':
             x_recon = self.restore_fn(x_mix, t)
             loss = self.reconstruct_loss(x_start, x_recon)
 
         elif self.backbone == 'twobranch':
-            x_recon, x_recon_fre = self.restore_fn(x_mix, x_mix_fre, aux, t)
+            x_recon, x_recon_fre = self.restore_fn(x_mix, aux, t)
 
             loss_spatial = self.reconstruct_loss(x_start, x_recon)
             loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
@@ -650,7 +644,7 @@ class Trainer(object):
                 # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
                 xt, direct_recons, all_images = self.ema_model.module.sample(batch_size=batches, faded_recon_sample=og_img, aux=aux)
 
-               
+
                 og_img = (og_img + 1) * 0.5
                 all_images = (all_images + 1) * 0.5
                 direct_recons = (direct_recons + 1) * 0.5

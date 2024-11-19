@@ -159,7 +159,11 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
     else:
         raise ValueError(f"Unknown pixel range {pixel_range}.")
 
-    return x_ksu, fft
+    return x_ksu
+
+
+
+
 
 
 

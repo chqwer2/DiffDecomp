@@ -3,6 +3,45 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from einops import rearrange
+from torch.fft import *
+
+def frequency_transform(x_input, pixel_range='-1_1', to_frequency=True):
+    if to_frequency:
+        if pixel_range == '0_1':
+            pass
+
+        elif pixel_range == '-1_1':
+            # x_start (-1, 1) --> (0, 1)
+            x_start = (x_input + 1) / 2
+
+        elif pixel_range == 'complex':
+            x_start = torch.complex(x_input[:, :1, ...], x_input[:, 1:, ...])
+
+        else:
+            raise ValueError(f"Unknown pixel range {pixel_range}.")
+
+        fft = fftshift(fft2(x_input))
+        return fft
+
+    else:
+        x_ksu = ifft2(ifftshift(x_input))
+
+        if pixel_range == '0_1':
+            x_ksu = torch.abs(x_ksu)
+
+        elif pixel_range == '-1_1':
+            x_ksu = torch.abs(x_ksu)
+            # x_ksu (0, 1) --> (-1, 1)
+            x_ksu = x_ksu * 2 - 1
+
+        elif pixel_range == 'complex':
+            x_ksu = torch.concat((x_ksu.real, x_ksu.imag), dim=1)
+        else:
+            raise ValueError(f"Unknown pixel range {pixel_range}.")
+
+    return x_ksu
+
+
 class Scale(nn.Module):
 
     def __init__(self, init_value=1e-3):
