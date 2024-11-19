@@ -651,7 +651,7 @@ class Trainer(object):
 
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
-                if (self.step + 1) % (self.step//100) == 0:
+                if (self.step + 1) % (max(self.train_num_steps//100, 1)) == 0:
                     print(f'{self.step}: {loss.item()}')
 
                 u_loss += loss.item()
