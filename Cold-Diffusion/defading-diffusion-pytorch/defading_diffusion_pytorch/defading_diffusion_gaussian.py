@@ -166,11 +166,14 @@ class GaussianDiffusion(nn.Module):
             rand_kernels = []
             rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
 
-            for i in range(batch_size, ):
+            for i in range(batch_size):
                 rand_kernels.append(torch.stack(
                     [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
+
+        print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
+
 
         if t is None:
             t = self.num_timesteps
@@ -188,9 +191,20 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                        # fade k=torch.Size([5, 128, 128]), x=torch.Size([24, 1, 128, 128])
+
+                        # print(f"kspace rand kernel k={rand_kernels[:, i].shape}, x={faded_recon_sample.shape}")
+
+                        k = torch.stack([rand_kernels[:, i]], 1)
+
                     else:
-                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
+                        k = torch.stack([self.kspace_kernels[i]], 1)
+                        # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
+
+                    faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
+
+        return_k = k
+        return_sample = faded_recon_sample
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -206,7 +220,10 @@ class GaussianDiffusion(nn.Module):
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
+
             elif self.backbone == "twobranch":
+                # print("TODO:", faded_recon_sample.shape)
+
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
                 recon_sample = recon_sample // 2 + recon_fre // 2
 
@@ -242,12 +259,15 @@ class GaussianDiffusion(nn.Module):
             elif self.degradation_type == 'kspace':
                 # faded_recon_sample = recon_sample
                 if self.sampling_routine == 'default':
+
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
-                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                k = torch.stack([rand_kernels[:, i]], 1)
                             else:
-                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                k =  torch.stack([self.kspace_kernels[i]], 1)
+
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
 
                     faded_recon_sample = recon_sample
 
@@ -256,7 +276,8 @@ class GaussianDiffusion(nn.Module):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
-                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                k = torch.stack([rand_kernels[:, i]], 1)
+                                recon_sample = apply_ksu_kernel(recon_sample, k)
                             else:
                                 recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
@@ -265,7 +286,7 @@ class GaussianDiffusion(nn.Module):
             recon_sample = faded_recon_sample
             t -= 1
 
-        return xt, direct_recons, recon_sample
+        return xt, direct_recons, recon_sample, return_k, return_sample
 
     @torch.no_grad()
     def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
@@ -310,10 +331,12 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample = self.fade_kernels[i].to(sample_device) * faded_recon_sample
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, rand_kernels[i])
+                        # print(f"kspace randkeynel k={rand_kernels[:, i].shape}, x={x.shape}")
+                        k = torch.stack([rand_kernels[:, i]], 1)
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
                     else:
+                        # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
                         faded_recon_sample = apply_ksu_kernel(faded_recon_sample, self.kspace_kernels[i])
-
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -433,9 +456,10 @@ class GaussianDiffusion(nn.Module):
                     # === all_fades shape: torch.Size([5, 24, 5, 128, 128])
 
                 elif self.degradation_type == 'kspace':
-                                                  # fade k=torch.Size([5, 128, 128]), x=torch.Size([24, 1, 128, 128])
+                    # fade k=torch.Size([24, 128, 128]), x=torch.Size([24, 1, 128, 128])
                     if rand_kernels is not None:
                         # print(f"kspace randkeynel k={rand_kernels[:, i].shape}, x={x.shape}")
+
                         k = torch.stack([rand_kernels[:, i]], 1)
                         x = apply_ksu_kernel(x, k)
                     else:
@@ -455,11 +479,14 @@ class GaussianDiffusion(nn.Module):
             else:
                 choose_fade.append(x_start[step])
         choose_fade = torch.stack(choose_fade)
+
         if self.discrete:
             choose_fade = (choose_fade + 1) * 0.5
             choose_fade = (choose_fade * 255)
             choose_fade = choose_fade.int().float() / 255
             choose_fade = choose_fade * 2 - 1
+
+        # print("Choosed fade:, ", choose_fade.shape)
         return choose_fade
 
     def reconstruct_loss(self, x_start, x_recon):
@@ -542,7 +569,7 @@ class Trainer(object):
         self.update_ema_every = update_ema_every
 
         self.step_start_ema = step_start_ema
-        self.save_and_sample_every = save_and_sample_every
+        self.save_and_sample_every = save_and_sample_every if not debug else 10
 
         self.batch_size = train_batch_size
         self.image_size = diffusion_model.module.image_size
@@ -652,7 +679,7 @@ class Trainer(object):
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
                 if (self.step + 1) % (min(self.train_num_steps//100 + 1, 100)) == 0:
-                    print(f'{self.step}: {loss.item()}')
+                    print(f'{self.step + 1}: {loss.item()}')
 
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
@@ -668,10 +695,15 @@ class Trainer(object):
             if self.step != 0 and self.step % self.save_and_sample_every == 0:
                 milestone = self.step // self.save_and_sample_every
                 batches = self.batch_size
-                og_img = next(self.dl).cuda()
+                data_dict = next(self.dl)  # .cuda()
+
+                og_img = data_dict['img'].cuda()
+                aux = data_dict['aux'].cuda()
 
                 # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                xt, direct_recons, all_images = self.ema_model.module.sample(batch_size=batches, faded_recon_sample=og_img, aux=aux)
+                xt, direct_recons, all_images, return_k, return_sample = (
+                    self.ema_model.module.sample(batch_size=batches, faded_recon_sample=og_img,
+                                                 aux=aux))
 
 
                 og_img = (og_img + 1) * 0.5
@@ -679,6 +711,8 @@ class Trainer(object):
                 direct_recons = (direct_recons + 1) * 0.5
                 xt = (xt + 1) * 0.5
                 aux = (aux + 1) * 0.5
+                return_k = (return_k + 1) * 0.5
+                return_sample = (return_sample + 1) * 0.5
 
                 print("DEBUG - og_img shape: ", og_img.shape)
                 print("DEBUG - full_recons shape: ", all_images.shape)
@@ -695,7 +729,8 @@ class Trainer(object):
                 utils.save_image(og_img, str(self.results_folder / f'{self.step}-img-{milestone}.png'), nrow=6)
                 utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
 
-                combine = torch.cat((xt, all_images, direct_recons, og_img, aux), 2)
+
+                combine = torch.cat((xt, return_k, return_sample, all_images, direct_recons, og_img, aux), 2)
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=6)
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)

@@ -145,6 +145,8 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
         raise ValueError(f"Unknown pixel range {pixel_range}.")
 
     fft = fftshift(fft2(x_start))
+    mask = mask.to(fft.device)
+
     try:
         fft = fft * mask
     except:
