@@ -705,10 +705,14 @@ class Trainer(object):
                 # return_k = (return_k + 1) * 0.5
                 return_sample = (return_sample + 1) * 0.5
 
-                print("DEBUG - og_img shape: ", og_img.shape)
-                print("DEBUG - full_recons shape: ", all_images.shape)
-                print("DEBUG - direct_recons shape: ", direct_recons.shape)
-                print("DEBUG - xt shape: ", xt.shape)
+                print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
+                print("DEBUG - full_recons shape: ", all_images.shape, all_images.max(), all_images.min())
+                print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
+                print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
+                print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
+                print("DEBUG - return_k shape: ", return_k.shape, return_k.max(), return_k.min())
+                print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
+
                 # 24, 1, 128, 128
 
                 os.makedirs(self.results_folder, exist_ok=True)
