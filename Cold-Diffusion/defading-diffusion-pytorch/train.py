@@ -54,6 +54,7 @@ parser.add_argument('--sampling_routine', default='x0_step_down', type=str)
 parser.add_argument('--discrete', action="store_true")
 parser.add_argument('--remove_time_embed', action="store_true")
 parser.add_argument('--residual', action="store_true")
+parser.add_argument('--tag', default='', type=str)
 
 # Defade specific arguments
 # parser.add_argument('--initial_mask', default=11, type=int)
@@ -157,6 +158,7 @@ print("=== train_steps:", args.train_steps)
 if args.debug:
     args.save_folder = args.save_folder + "_debug"
 else:
+    args.save_folder = args.save_folder + f"_{args.tag}"
     if os.path.exists(args.save_folder):
         name = args.save_folder.split(".")[-1]
         number = os.listdir(args.save_folder.rstrip(name)).count

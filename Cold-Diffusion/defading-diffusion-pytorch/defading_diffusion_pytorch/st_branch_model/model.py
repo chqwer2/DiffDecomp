@@ -279,6 +279,8 @@ class TwoBranchModel(pl.LightningModule):
         num_group = 4
         # lr = self.lr
         self.use_fre_mix = False
+        self.use_res = False
+
 
         self.model = ModelBackbone(num_features, act, base_num_every_group, num_channels)
         
@@ -456,8 +458,10 @@ class TwoBranchModel(pl.LightningModule):
         up3_fuse_mo = self.model.conv_fuse[13](up3_fre_mo, up3_mo)
 
         res = self.model.tail(up3_fuse_mo)
-
-        return res + main,  res_fre + main
+        if self.use_res:
+            res = res + main
+            res_fre = res_fre + main
+        return res,  res_fre
     
     
     def training_step(self, batch, batch_idx, optimizer_idx):

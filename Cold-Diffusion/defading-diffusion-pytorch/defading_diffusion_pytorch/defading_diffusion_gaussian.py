@@ -145,6 +145,9 @@ class GaussianDiffusion(nn.Module):
             self.phaloss = self.restore_fn.phaloss  # .to(self.device, non_blocking=True)
             self.lpips = self.restore_fn.perceptual_model  # .to(self.device, non_blocking=True)
 
+        self.use_fre_loss = False
+        self.update_kernel = True
+
 
     def get_new_kspace(self):
         self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
@@ -166,7 +169,8 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            # self.get_new_kspace()
+            if self.update_kernel:
+                self.get_new_kspace()
             rand_kernels = []
 
             for i in range(batch_size ):
@@ -258,7 +262,7 @@ class GaussianDiffusion(nn.Module):
                             if rand_kernels is not None:
                                 k = torch.stack([rand_kernels[:, i]], 1)
                             else:
-                                k =  torch.stack([self.kspace_kernels[i]], 1)
+                                k = torch.stack([self.kspace_kernels[i]], 1)
 
                             recon_sample = apply_ksu_kernel(recon_sample, k)
 
@@ -417,7 +421,8 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            # self.get_new_kspace()
+            if self.update_kernel:
+                self.get_new_kspace()
             rand_kernels = []
             # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
             #                        device=x_start.device).long()
@@ -517,12 +522,13 @@ class GaussianDiffusion(nn.Module):
             lpips_loss = self.lpips(x_recon, x_start)
             loss += lpips_weight * lpips_loss
 
-            # TODO
-            # fft_weight = 0.01
-            # amp = self.amploss(x_recon_fre, x_start)
-            # pha = self.phaloss(x_recon_fre, x_start)
-            #
-            # loss += fft_weight * (amp + pha)
+
+            if self.use_fre_loss:
+                fft_weight = 0.01
+                amp = self.amploss(x_recon_fre, x_start)
+                pha = self.phaloss(x_recon_fre, x_start)
+
+                loss += fft_weight * (amp + pha)
 
         return loss
 
