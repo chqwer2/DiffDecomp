@@ -82,7 +82,7 @@ model_name = diffusion_type.split("_")[0]  # unet | twobranch
 
 if args.debug:
     args.train_steps = 100
-    args.time_steps = 5
+    args.time_steps = 2
 
 if model_name == "unet":
     # model = Unet(            # Used to be Model

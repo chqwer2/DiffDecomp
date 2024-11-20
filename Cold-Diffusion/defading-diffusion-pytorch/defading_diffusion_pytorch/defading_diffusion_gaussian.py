@@ -167,7 +167,16 @@ class GaussianDiffusion(nn.Module):
 
         elif self.degradation_type == 'kspace':
             self.get_new_kspace()
-            rand_kernels = self.kspace_kernels
+            rand_kernels = []
+            # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
+            #                        device=x_start.device).long()
+
+            for i in range(batch_size ):
+                rand_kernels.append(torch.stack(
+                    [self.kspace_kernels[j][:self.image_size,
+                     : self.image_size] for j in range(len(self.kspace_kernels))]))
+
+            rand_kernels = torch.stack(rand_kernels)
 
             # rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
             #                        device=faded_recon_sample.device).long()
@@ -425,18 +434,24 @@ class GaussianDiffusion(nn.Module):
 
         elif self.degradation_type == 'kspace':
             self.get_new_kspace()
-            rand_kernels = self.kspace_kernels
-
-            # rand_kernels = []
+            rand_kernels = []
             # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
             #                        device=x_start.device).long()
+
+            for i in range(x_start.size(0),):
+                rand_kernels.append(torch.stack(
+                    [self.kspace_kernels[j][:self.image_size,
+                     : self.image_size] for j in range(len(self.kspace_kernels))]))
+
+            rand_kernels = torch.stack(rand_kernels)
+
+            # print("new rand kernels shape:", rand_kernels.shape)  # new rand kernels shape: torch.Size([24, 5, 128, 128])
             #
-            # for i in range(x_start.size(0),):
-            #     rand_kernels.append(torch.stack(
-            #         [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-            #          : self.image_size] for j in range(len(self.kspace_kernels))]))
             #
-            # rand_kernels = torch.stack(rand_kernels)
+            # rand_kernels = self.kspace_kernels
+            # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
+
+
             
         # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
 
@@ -714,10 +729,13 @@ class Trainer(object):
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
 
-                all_images = (all_images + 1) * 0.5
-                direct_recons = (direct_recons + 1) * 0.5
+                all_images = (all_images + 1) * 0.5 #+ 0.5
+                direct_recons = (direct_recons + 1) * 0.5 #+ 0.5
                 xt = (xt + 1) * 0.5
 
+
+                all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
+                direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
                 return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
                 print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
@@ -726,9 +744,22 @@ class Trainer(object):
                 print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
                 print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
                 print("DEBUG - return_k shape: ", return_k.shape, return_k.max(), return_k.min())
-                print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
+                # print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
 
                 # 24, 1, 128, 128
+                # Calculate SSIM and PSNR, LPIPS
+                from skimage.metrics import structural_similarity as ssim
+                from skimage.metrics import peak_signal_noise_ratio as psnr
+                img_ = all_images.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                print("img_ shape: ", img_.shape, img_.max(), img_.min())
+                print("og_img_ shape: ", og_img_.shape, og_img_.max(), og_img_.min())
+
+                ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                psnr = psnr(img_, og_img_, data_range=1).mean()
+                lpips = self.ema_model.module.lpips(all_images, og_img).mean()
+                print("=== Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+
 
                 os.makedirs(self.results_folder, exist_ok=True)
                 utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
@@ -740,9 +771,8 @@ class Trainer(object):
                 utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
 
                 return_k = return_k.cuda()
-                return_sample = return_sample.cuda()
 
-                combine = torch.cat((return_k, xt, return_sample,
+                combine = torch.cat((return_k, xt,
                                      all_images, direct_recons, og_img, aux), 2)
 
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
