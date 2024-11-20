@@ -131,8 +131,7 @@ class GaussianDiffusion(nn.Module):
             # print("=== self.fade_kernels shape = ", self.fade_kernels.shape)  # [5, 256, 256]
 
         elif self.degradation_type == "kspace":
-            self.kspace_kernels = get_ksu_kernel(self.num_timesteps, 2 * image_size)
-            self.kspace_kernels =  torch.stack(self.kspace_kernels).squeeze(1)
+            self.get_new_kspace()
             # print("=== self.kspace_kernels shape = ", self.kspace_kernels.shape)   # [5, 256, 256]
         else:
             raise NotImplementedError()
@@ -145,6 +144,11 @@ class GaussianDiffusion(nn.Module):
             self.amploss = self.restore_fn.amploss  # .to(self.device, non_blocking=True)
             self.phaloss = self.restore_fn.phaloss  # .to(self.device, non_blocking=True)
             self.lpips = self.restore_fn.perceptual_model  # .to(self.device, non_blocking=True)
+
+
+    def get_new_kspace(self):
+        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
+        self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
 
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
@@ -162,19 +166,21 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            rand_kernels = []
-            rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
-                                   device=faded_recon_sample.device).long()
-            print("rand_x shape:", rand_x.shape, rand_x)
+            self.get_new_kspace()
+            rand_kernels = self.kspace_kernels
 
-            for i in range(batch_size):
-                rand_kernels.append(torch.stack(
-                    [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     : self.image_size] for j in range(len(self.kspace_kernels))]))
-            rand_kernels = torch.stack(rand_kernels)
+            # rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
+            #                        device=faded_recon_sample.device).long()
+            # print("rand_x shape:", rand_x.shape, rand_x)
+
+            # for i in range(batch_size):
+            #     rand_kernels.append(torch.stack(
+            #         [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+            #          : self.image_size] for j in range(len(self.kspace_kernels))]))
+            # rand_kernels = torch.stack(rand_kernels)
 
 
-        print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
+        # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
 
 
         if t is None:
@@ -418,16 +424,19 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            rand_kernels = []
-            rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
-                                   device=x_start.device).long()
+            self.get_new_kspace()
+            rand_kernels = self.kspace_kernels
 
-            for i in range(x_start.size(0),):
-                rand_kernels.append(torch.stack(
-                    [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-                     : self.image_size] for j in range(len(self.kspace_kernels))]))
-
-            rand_kernels = torch.stack(rand_kernels)
+            # rand_kernels = []
+            # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
+            #                        device=x_start.device).long()
+            #
+            # for i in range(x_start.size(0),):
+            #     rand_kernels.append(torch.stack(
+            #         [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
+            #          : self.image_size] for j in range(len(self.kspace_kernels))]))
+            #
+            # rand_kernels = torch.stack(rand_kernels)
             
         # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
 
