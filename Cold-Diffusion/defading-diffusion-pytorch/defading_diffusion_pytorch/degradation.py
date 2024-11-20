@@ -1,6 +1,9 @@
 # ---------------------------
 # Fade kernels
 # ---------------------------
+import cv2
+
+
 def get_fade_kernel(dims, std):
     fade_kernel = tgm.image.get_gaussian_kernel2d(dims, std)
     fade_kernel = fade_kernel / torch.max(fade_kernel)
@@ -97,23 +100,28 @@ def get_ksu_mask(ksu_mask_type, af, cf, pe, fe, seed=0):
 
 def get_ksu_kernel(timesteps, image_size,
                    ksu_routine="LogSamplingRate",
-                   ksu_mask_type="cartesian_random"):
+                   ksu_mask_type="cartesian_random", accelerated_factor=4):
     masks = []
     ksu_mask_pe = ksu_mask_fe = image_size  # , ksu_mask_pe=320, ksu_mask_fe=320
     # ksu_mask_fe
     if ksu_routine == 'LinearSamplingRate':
         # Generate the sampling rate list with torch.linspace, reversed, and skip the first element
-        sr_list = torch.linspace(start=0.01, end=1, steps=timesteps + 1).flip(0)
+        sr_list = torch.linspace(start=1/accelerated_factor, end=1, steps=timesteps + 1).flip(0)
+        # Start from 0.01
 
         for sr in sr_list:
-            af = 1 / sr
+            af = 1 / sr # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
             masks.append(get_ksu_mask(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
     elif ksu_routine == 'LogSamplingRate':
         # Generate the sampling rate list with torch.logspace, reversed, and skip the first element
-        sr_list = torch.logspace(start=-2, end=0, steps=timesteps + 1).flip(0)
-        print("sr_list length: ", sr_list.shape)
+        sr_list = torch.logspace(start=-torch.log10(torch.tensor(accelerated_factor)),
+                                 end=0, steps=timesteps + 1).flip(0)
+        # start=-2
+
+        # print("sr_list length: ", sr_list.shape, sr_list)
+        sr_list = sr_list #  accelerated_factor
 
         for sr in sr_list:
             af = 1 / sr
@@ -174,15 +182,35 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
 
 
 
-
-
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import numpy as np
     masks = get_ksu_kernel(10, 128)
-    masks = np.concatenate(masks, axis=-1)
-    print("Masks shape: ", masks.shape)
+
+
+    img = plt.imread("/Users/haochen/Documents/GitHub/DiffDecomp/Cold-Diffusion/generation-diffusion-pytorch/defading_diffusion_pytorch/assets/img.png")
+    img = cv2.resize(img, (128, 128))
+
+    img = np.transpose(img, (2, 0, 1))
+    img = torch.from_numpy(img).unsqueeze(0).float()
+
+    masked_img = []
+
+    for m in masks:
+        img = apply_ksu_kernel(img, m)
+        masked_img.append(img)
+
+    # print("Masks shape: ", masks.shape)
+    masks = np.concatenate(masks, axis=-1)[0]
+    masked_img = (torch.concat(masked_img, dim=-1).numpy() + 1) * 0.5
+    masked_img = np.transpose(masked_img, (0, 2, 3, 1))[0, ... , 1]
+    # masked_img = cv2.cvtColor(masked_img, cv2.COLOR_RGB2GRAY)
+
+    print(" masked_img shape: ", masked_img.shape)
+    print(" mask shape: ", masks.shape)
+
+    img = np.concatenate([masks, masked_img], axis=0)
 
     plt.figure(figsize=(10, 10))
-    plt.imshow(masks[0])   # (1, 128, 1280)
+    plt.imshow(img)   # (1, 128, 1280)
     plt.show()

@@ -238,6 +238,7 @@ class RandomMaskFunc(MaskFunc):
         offset: Optional[int],
         num_low_frequencies: int,
     ) -> np.ndarray:
+
         prob = (num_cols / acceleration - num_low_frequencies) / (
             num_cols - num_low_frequencies
         )

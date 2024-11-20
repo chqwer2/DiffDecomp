@@ -164,16 +164,14 @@ class GaussianDiffusion(nn.Module):
 
         elif self.degradation_type == 'kspace':
             rand_kernels = []
-            rand_x = torch.randint(0, self.image_size + 1, (batch_size,), device=faded_recon_sample.device).long()
+            rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
+                                   device=faded_recon_sample.device).long()
 
             for i in range(batch_size):
                 rand_kernels.append(torch.stack(
                     [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
-
-        print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
-
 
         if t is None:
             t = self.num_timesteps
@@ -191,10 +189,6 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
-                        # fade k=torch.Size([5, 128, 128]), x=torch.Size([24, 1, 128, 128])
-
-                        # print(f"kspace rand kernel k={rand_kernels[:, i].shape}, x={faded_recon_sample.shape}")
-
                         k = torch.stack([rand_kernels[:, i]], 1)
 
                     else:
@@ -222,8 +216,6 @@ class GaussianDiffusion(nn.Module):
                 recon_sample = self.restore_fn(faded_recon_sample, step)
 
             elif self.backbone == "twobranch":
-                # print("TODO:", faded_recon_sample.shape)
-
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
                 recon_sample = recon_sample // 2 + recon_fre // 2
 
@@ -425,12 +417,14 @@ class GaussianDiffusion(nn.Module):
 
         elif self.degradation_type == 'kspace':
             rand_kernels = []
-            rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),), device=x_start.device).long()
+            rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
+                                   device=x_start.device).long()
 
-            for i in range(x_start.size(0), ):
+            for i in range(x_start.size(0),):
                 rand_kernels.append(torch.stack(
                     [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
+
             rand_kernels = torch.stack(rand_kernels)
             
         # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
@@ -449,28 +443,20 @@ class GaussianDiffusion(nn.Module):
 
                     else:
                         k = self.fade_kernels[i]   # fade k=torch.Size([24, 3, 128, 128]),
-                                                   # x=torch.Size([24, 1, 128, 128])
-                    # print(f"fade k={k.shape}, x={x.shape}")
-                    x = k * x
 
-                    # === all_fades shape: torch.Size([5, 24, 5, 128, 128])
+                    x = k * x
 
                 elif self.degradation_type == 'kspace':
                     # fade k=torch.Size([24, 128, 128]), x=torch.Size([24, 1, 128, 128])
                     if rand_kernels is not None:
-                        # print(f"kspace randkeynel k={rand_kernels[:, i].shape}, x={x.shape}")
-
                         k = torch.stack([rand_kernels[:, i]], 1)
-                        x = apply_ksu_kernel(x, k)
                     else:
-                        # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
-                        x = apply_ksu_kernel(x, self.kspace_kernels[i])
+                        k = torch.stack([self.kspace_kernels[i]], 1)
 
+                    x = apply_ksu_kernel(x, k)
                 all_fades.append(x)
 
         all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
-        # print("=== all_fades shape:", all_fades.shape)
-
 
         choose_fade = []
         for step in range(t.shape[0]):
@@ -486,7 +472,6 @@ class GaussianDiffusion(nn.Module):
             choose_fade = choose_fade.int().float() / 255
             choose_fade = choose_fade * 2 - 1
 
-        # print("Choosed fade:, ", choose_fade.shape)
         return choose_fade
 
     def reconstruct_loss(self, x_start, x_recon):
@@ -529,10 +514,12 @@ class GaussianDiffusion(nn.Module):
         b, c, h, w, device, img_size, = *x1.shape, x1.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
+
         if self.degradation_type == 'fade':
             self.fade_kernels = self.fade_kernels.to(device)
         elif self.degradation_type == 'kspace':
-            self.kspace_kernels = (self.kspace_kernels.to(device))
+            self.kspace_kernels = self.kspace_kernels.to(device)
+
         return self.p_losses(x1, x2, t, *args, **kwargs)
 
 
@@ -678,11 +665,15 @@ class Trainer(object):
 
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
-                if (self.step + 1) % (min(self.train_num_steps//100 + 1, 100)) == 0:
-                    print(f'{self.step + 1}: {loss.item()}')
+
+                if (self.step + 1) % (min(self.train_num_steps // 100 + 1, 100)) == 0:
+                    print(f'{self.step + 1}: {loss}')
 
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
+
+
+
             # writer.add_scalar("Loss/train", loss.item(), self.step)
             acc_loss = acc_loss + (u_loss / self.gradient_accumulate_every)
 
@@ -711,7 +702,7 @@ class Trainer(object):
                 direct_recons = (direct_recons + 1) * 0.5
                 xt = (xt + 1) * 0.5
                 aux = (aux + 1) * 0.5
-                return_k = (return_k + 1) * 0.5
+                # return_k = (return_k + 1) * 0.5
                 return_sample = (return_sample + 1) * 0.5
 
                 print("DEBUG - og_img shape: ", og_img.shape)
@@ -721,17 +712,21 @@ class Trainer(object):
                 # 24, 1, 128, 128
 
                 os.makedirs(self.results_folder, exist_ok=True)
-                utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise-{milestone}.png'), nrow=6)
-                utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons-{milestone}.png'),
+                utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
+                utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
                                  nrow=6)
                 utils.save_image(direct_recons,
-                                 str(self.results_folder / f'{self.step}-sample-direct_recons-{milestone}.png'), nrow=6)
-                utils.save_image(og_img, str(self.results_folder / f'{self.step}-img-{milestone}.png'), nrow=6)
-                utils.save_image(aux, str(self.results_folder / f'{self.step}-aux-{milestone}.png'), nrow=6)
+                                 str(self.results_folder / f'{self.step}-sample-direct_recons.png'), nrow=6)
+                utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
+                utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
 
+                return_k = return_k.cuda()
+                return_sample = return_sample.cuda()
 
-                combine = torch.cat((xt, return_k, return_sample, all_images, direct_recons, og_img, aux), 2)
-                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{milestone}.png'), nrow=6)
+                combine = torch.cat((xt, return_k, return_sample,
+                                     all_images, direct_recons, og_img, aux), 2)
+
+                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)
                 print(f'Mean of last {self.step}: {acc_loss}')
