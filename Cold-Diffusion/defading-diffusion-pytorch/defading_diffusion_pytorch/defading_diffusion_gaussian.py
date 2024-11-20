@@ -148,7 +148,6 @@ class GaussianDiffusion(nn.Module):
 
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
-        # TODO
         rand_kernels = None
         sample_device = faded_recon_sample.device
         if self.degradation_type == 'fade':
@@ -166,6 +165,7 @@ class GaussianDiffusion(nn.Module):
             rand_kernels = []
             rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
                                    device=faded_recon_sample.device).long()
+            print("rand_x shape:", rand_x.shape, rand_x)
 
             for i in range(batch_size):
                 rand_kernels.append(torch.stack(
@@ -190,15 +190,13 @@ class GaussianDiffusion(nn.Module):
                 elif self.degradation_type == 'kspace':
                     if rand_kernels is not None:
                         k = torch.stack([rand_kernels[:, i]], 1)
-
                     else:
                         k = torch.stack([self.kspace_kernels[i]], 1)
-                        # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
 
                     faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
 
         return_k = k
-        return_sample = faded_recon_sample
+        # return_sample = faded_recon_sample
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -278,7 +276,7 @@ class GaussianDiffusion(nn.Module):
             recon_sample = faded_recon_sample
             t -= 1
 
-        return xt, direct_recons, recon_sample, return_k, return_sample
+        return xt, direct_recons, recon_sample, return_k
 
     @torch.no_grad()
     def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
@@ -666,12 +664,13 @@ class Trainer(object):
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
 
-                if (self.step + 1) % (min(self.train_num_steps // 100 + 1, 100)) == 0:
-                    print(f'{self.step + 1}: {loss}')
+
 
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
 
+            if (self.step + 1) % (min(self.train_num_steps // 100 + 1, 100)) == 0:
+                print(f'{self.step + 1}: {u_loss}')
 
 
             # writer.add_scalar("Loss/train", loss.item(), self.step)
@@ -683,6 +682,7 @@ class Trainer(object):
             if self.step % self.update_ema_every == 0:
                 self.step_ema()
 
+            # TEST and SAVE
             if self.step != 0 and self.step % self.save_and_sample_every == 0:
                 milestone = self.step // self.save_and_sample_every
                 batches = self.batch_size
@@ -692,18 +692,20 @@ class Trainer(object):
                 aux = data_dict['aux'].cuda()
 
                 # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                xt, direct_recons, all_images, return_k, return_sample = (
-                    self.ema_model.module.sample(batch_size=batches, faded_recon_sample=og_img,
-                                                 aux=aux))
+                xt, direct_recons, all_images, return_k = self.ema_model.module.sample(
+                                                 batch_size=batches,
+                                                 faded_recon_sample=og_img,
+                                                 aux=aux)
 
 
                 og_img = (og_img + 1) * 0.5
+                aux = (aux + 1) * 0.5
+
                 all_images = (all_images + 1) * 0.5
                 direct_recons = (direct_recons + 1) * 0.5
                 xt = (xt + 1) * 0.5
-                aux = (aux + 1) * 0.5
-                # return_k = (return_k + 1) * 0.5
-                return_sample = (return_sample + 1) * 0.5
+
+                return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
                 print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
                 print("DEBUG - full_recons shape: ", all_images.shape, all_images.max(), all_images.min())
@@ -727,13 +729,14 @@ class Trainer(object):
                 return_k = return_k.cuda()
                 return_sample = return_sample.cuda()
 
-                combine = torch.cat((xt, return_k, return_sample,
+                combine = torch.cat((return_k, xt, return_sample,
                                      all_images, direct_recons, og_img, aux), 2)
 
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)
-                print(f'Mean of last {self.step}: {acc_loss}')
+                print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))
+
                 acc_loss = 0
 
                 self.save()
