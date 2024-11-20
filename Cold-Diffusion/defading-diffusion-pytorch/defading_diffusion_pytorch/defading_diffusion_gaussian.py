@@ -173,6 +173,10 @@ class GaussianDiffusion(nn.Module):
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
             rand_kernels = torch.stack(rand_kernels)
 
+
+        print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
+
+
         if t is None:
             t = self.num_timesteps
 

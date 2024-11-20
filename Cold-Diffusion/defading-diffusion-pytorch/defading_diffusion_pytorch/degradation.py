@@ -100,7 +100,8 @@ def get_ksu_mask(ksu_mask_type, af, cf, pe, fe, seed=0):
 
 def get_ksu_kernel(timesteps, image_size,
                    ksu_routine="LogSamplingRate",
-                   ksu_mask_type="cartesian_random", accelerated_factor=4):
+                   ksu_mask_type="cartesian_random",
+                   accelerated_factor=4):
     masks = []
     ksu_mask_pe = ksu_mask_fe = image_size  # , ksu_mask_pe=320, ksu_mask_fe=320
     # ksu_mask_fe
@@ -179,32 +180,53 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
     return x_ksu
 
 
-
-
-
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import numpy as np
-    masks = get_ksu_kernel(10, 128)
+
+
+    image_size = 128
+    batch_size = 1
+    t = 10
+    kspace_kernels = get_ksu_kernel(t, 2*image_size)
 
 
     img = plt.imread("/Users/haochen/Documents/GitHub/DiffDecomp/Cold-Diffusion/generation-diffusion-pytorch/defading_diffusion_pytorch/assets/img.png")
     img = cv2.resize(img, (128, 128))
 
     img = np.transpose(img, (2, 0, 1))
+    img = img[0]
+    img = np.expand_dims(img, axis=0)
     img = torch.from_numpy(img).unsqueeze(0).float()
+    print(" img shape: ", img.shape, img.max(), img.min())
+
+    rand_kernels = []
+    rand_x = torch.randint(0, image_size + 1, (batch_size,)).long()
+
+    print("rand_x shape:", rand_x.shape, rand_x)
+
+    for i in range(batch_size):
+        print("kspace_kernels[j] shape = ", kspace_kernels[j].shape)
+        rand_kernels.append(torch.stack(
+            [kspace_kernels[j][rand_x[i]:rand_x[i] + image_size,
+             : image_size] for j in range(len(kspace_kernels))]))
+    rand_kernels = torch.stack(rand_kernels)
+
+
+    print("=== rand_kernels: ", rand_kernels.shape, kspace_kernels[0].shape)
 
     masked_img = []
 
-    for m in masks:
-        img = apply_ksu_kernel(img, m)
+    for i in range(t):
+        k = torch.stack([rand_kernels[:, i]], 1)
+        img = apply_ksu_kernel(img, k, pixel_range='0_1')
         masked_img.append(img)
 
-    # print("Masks shape: ", masks.shape)
-    masks = np.concatenate(masks, axis=-1)[0]
+    masks = np.concatenate(rand_kernels.numpy(), axis=-1)[0]
     masked_img = (torch.concat(masked_img, dim=-1).numpy() + 1) * 0.5
-    masked_img = np.transpose(masked_img, (0, 2, 3, 1))[0, ... , 1]
+    masked_img = np.transpose(masked_img, (0, 2, 3, 1))[0, ..., 0]
     # masked_img = cv2.cvtColor(masked_img, cv2.COLOR_RGB2GRAY)
+
 
     print(" masked_img shape: ", masked_img.shape)
     print(" mask shape: ", masks.shape)
