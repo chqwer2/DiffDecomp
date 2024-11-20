@@ -23,10 +23,10 @@ diffusion_type=twobranch_fade    # unet | twobranch
 diffusion_type=twobranch_kspace
 # diffusion_type=unet_fade    # unet | twobranch
 save_folder=./results/$diffusion_type
+time_step = 50  # 50
 
 
-
-python  train.py --time_steps 50 --train_steps 700000 \
+python  train.py --time_steps $time_step --train_steps 700000 \
             --save_folder $save_folder \
             --data_path $datapath --dataset $dataset \
             --domain $domain --aux_modality $aux_modality \

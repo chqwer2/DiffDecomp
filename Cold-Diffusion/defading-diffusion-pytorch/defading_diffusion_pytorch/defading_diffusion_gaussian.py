@@ -11,13 +11,13 @@ from pathlib import Path
 from torch.optim import Adam
 from torchvision import transforms, utils
 
-from einops import rearrange
+# from einops import rearrange
 
 import torchgeometry as tgm
 import os
 import errno
 from PIL import Image
-from pytorch_msssim import ssim
+# from pytorch_msssim import ssim
 import cv2
 import numpy as np
 import imageio
@@ -166,10 +166,8 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            self.get_new_kspace()
+            # self.get_new_kspace()
             rand_kernels = []
-            # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
-            #                        device=x_start.device).long()
 
             for i in range(batch_size ):
                 rand_kernels.append(torch.stack(
@@ -177,20 +175,6 @@ class GaussianDiffusion(nn.Module):
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
 
             rand_kernels = torch.stack(rand_kernels)
-
-            # rand_x = torch.randint(0, self.image_size + 1, (batch_size,),
-            #                        device=faded_recon_sample.device).long()
-            # print("rand_x shape:", rand_x.shape, rand_x)
-
-            # for i in range(batch_size):
-            #     rand_kernels.append(torch.stack(
-            #         [self.kspace_kernels[j][rand_x[i]:rand_x[i] + self.image_size,
-            #          : self.image_size] for j in range(len(self.kspace_kernels))]))
-            # rand_kernels = torch.stack(rand_kernels)
-
-
-        # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
-
 
         if t is None:
             t = self.num_timesteps
@@ -433,7 +417,7 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            self.get_new_kspace()
+            # self.get_new_kspace()
             rand_kernels = []
             # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
             #                        device=x_start.device).long()
@@ -528,11 +512,17 @@ class GaussianDiffusion(nn.Module):
             loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
             loss = loss_spatial + loss_freq
 
-            fft_weight = 0.01
-            amp = self.amploss(x_recon_fre, x_start)
-            pha = self.phaloss(x_recon_fre, x_start)
+            # LPIPS
+            lpips_weight = 0.01
+            lpips_loss = self.lpips(x_recon, x_start)
+            loss += lpips_weight * lpips_loss
 
-            loss += fft_weight * (amp + pha)
+            # TODO
+            # fft_weight = 0.01
+            # amp = self.amploss(x_recon_fre, x_start)
+            # pha = self.phaloss(x_recon_fre, x_start)
+            #
+            # loss += fft_weight * (amp + pha)
 
         return loss
 
@@ -712,7 +702,6 @@ class Trainer(object):
 
             # TEST and SAVE
             if self.step != 0 and self.step % self.save_and_sample_every == 0:
-                milestone = self.step // self.save_and_sample_every
                 batches = self.batch_size
                 data_dict = next(self.dl)  # .cuda()
 
@@ -728,7 +717,6 @@ class Trainer(object):
 
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
-
                 all_images = (all_images + 1) * 0.5 #+ 0.5
                 direct_recons = (direct_recons + 1) * 0.5 #+ 0.5
                 xt = (xt + 1) * 0.5

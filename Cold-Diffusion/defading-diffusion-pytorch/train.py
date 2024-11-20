@@ -158,7 +158,8 @@ if args.debug:
     args.save_folder = args.save_folder + "_debug"
 else:
     if os.path.exists(args.save_folder):
-        number = os.listdir(args.save_folder).count
+        name = args.save_folder.split(".")[-1]
+        number = os.listdir(args.save_folder.rstrip(name)).count
         args.save_folder = args.save_folder + f"_{number}"
 
 
