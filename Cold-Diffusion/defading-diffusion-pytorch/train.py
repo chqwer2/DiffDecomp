@@ -1,4 +1,4 @@
-from defading_diffusion_pytorch import GaussianDiffusion, Trainer, Model
+from defading_diffusion_pytorch import GaussianDiffusion, Trainer, TwoBranchNewModel, Model
 import torchvision
 import os
 import errno
@@ -87,6 +87,7 @@ if args.debug:
     args.train_steps = 100
     args.time_steps = 5
 
+
 if model_name == "unet":
     # model = Unet(            # Used to be Model
     #     dim=64,
@@ -104,6 +105,16 @@ if model_name == "unet":
                   attn_resolutions=(16,),
                   dropout=0.1).cuda()
 
+elif model_name == "twounet":
+
+    model = TwoBranchNewModel(resolution=128,
+                  in_channels=1,
+                  out_ch=1,
+                  ch=128,
+                  ch_mult=(1, 2, 2, 2),
+                  num_res_blocks=2,
+                  attn_resolutions=(16,),
+                  dropout=0.1).cuda()
 
 elif model_name == "twobranch":
     downsample = [4, 4, 4]

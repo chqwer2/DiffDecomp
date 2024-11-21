@@ -219,6 +219,8 @@ class GaussianDiffusion(nn.Module):
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
+            elif sekf.backbone == "twounet":
+                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
@@ -420,6 +422,9 @@ class GaussianDiffusion(nn.Module):
             step = torch.full((batch_size,), times - 1, dtype=torch.long).cuda()
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
+            elif self.backbone == "twounet":
+                recon_sample = self.restore_fn(faded_recon_sample, aux, step)
+
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
                 recon_sample = recon_sample // 2 + recon_fre // 2
@@ -688,7 +693,7 @@ class Trainer(object):
         os.makedirs(results_folder, exist_ok=True)
         self.results_folder = Path(results_folder)
         # self.results_folder.mkdir(exist_ok=True)
-        self.lpips = LPIPS().eval()
+        self.lpips = LPIPS().eval().cuda()
 
         self.reset_parameters()
 

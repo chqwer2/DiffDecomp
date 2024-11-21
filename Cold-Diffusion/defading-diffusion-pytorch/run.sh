@@ -25,6 +25,8 @@ diffusion_type=twobranch_kspace
 diffusion_type=unet_kspace
 
 
+diffusion_type=twounet_kspace
+
 # diffusion_type=unet_fade    # unet | twobranch
 save_folder=./results/$diffusion_type
 

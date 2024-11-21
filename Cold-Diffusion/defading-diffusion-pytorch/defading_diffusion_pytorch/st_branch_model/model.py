@@ -325,10 +325,7 @@ class TwoBranchModel(pl.LightningModule):
         self.model = ModelBackbone(num_features, act,
                                    base_num_every_group, num_channels,
                                    temb_ch=self.temb_ch)
-        
-        # self.image_discriminator = NLayerDiscriminator(
-        #     image_channels, disc_channels, disc_layers,
-        #     norm_layer=nn.BatchNorm2d)
+
         
         self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
         self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
