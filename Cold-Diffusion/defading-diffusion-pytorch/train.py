@@ -85,7 +85,7 @@ save_and_sample_every = 1000
 
 if args.debug:
     args.train_steps = 100
-    args.time_steps = 2
+    args.time_steps = 5
 
 if model_name == "unet":
     # model = Unet(            # Used to be Model
@@ -95,9 +95,9 @@ if model_name == "unet":
     #     with_time_emb=not (args.remove_time_embed),
     #     residual=args.residual
     # ).cuda()
-    model = Model(resolution=32,
-                  in_channels=3,
-                  out_ch=3,
+    model = Model(resolution=128,
+                  in_channels=1,
+                  out_ch=1,
                   ch=128,
                   ch_mult=(1, 2, 2, 2),
                   num_res_blocks=2,

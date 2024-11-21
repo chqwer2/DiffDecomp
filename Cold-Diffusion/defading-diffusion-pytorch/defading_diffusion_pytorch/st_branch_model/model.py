@@ -26,12 +26,13 @@ class SiLU(nn.Module):
     
     
 class ModelBackbone(nn.Module):
-    def __init__(self, num_features, act, base_num_every_group, num_channels):
+    def __init__(self, num_features, act, base_num_every_group, num_channels, temb_ch):
         super(ModelBackbone, self).__init__()
         
         self.num_features = num_features
         self.act = act
         self.num_channels = num_channels
+        self.temb_ch = temb_ch
         
         # self.args = args
         num_every_group = base_num_every_group
@@ -49,7 +50,7 @@ class ModelBackbone(nn.Module):
     def init_T2_frq_branch(self):
         ### T2frequency branch
         modules_head_fre = [common.ConvBNReLU2D(1, out_channels=self.num_features,
-                                            kernel_size=3, padding=1, act=self.act)]
+                                            kernel_size=3, padding=1, act=self.act, temb_ch=self.temb_ch)]
         self.head_fre = nn.Sequential(*modules_head_fre)
 
         modules_down1_fre = [common.DownSample(self.num_features, False, False),
@@ -98,80 +99,81 @@ class ModelBackbone(nn.Module):
         # define tail module
         modules_tail_fre = [
             common.ConvBNReLU2D(self.num_features, out_channels=self.num_channels, kernel_size=3, padding=1,
-                        act=self.act)]
+                        act=self.act, temb_ch=self.temb_ch)]
         self.tail_fre = nn.Sequential(*modules_tail_fre)
 
     def init_T2_spa_branch(self, num_every_group):
         ### spatial branch
         modules_head = [common.ConvBNReLU2D(1, out_channels=self.num_features,
-                                            kernel_size=3, padding=1, act=self.act)]
+                                            kernel_size=3, padding=1, act=self.act, temb_ch=self.temb_ch)]
         self.head = nn.Sequential(*modules_head)
 
         modules_down1 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act,
+                             n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down1 = nn.Sequential(*modules_down1)
 
 
         self.down1_mo = nn.Sequential(common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_down2 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down2 = nn.Sequential(*modules_down2)
 
         self.down2_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_down3 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down3 = nn.Sequential(*modules_down3)
         self.down3_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_neck = [common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.neck = nn.Sequential(*modules_neck)
 
         self.neck_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_up1 = [common.UpSampler(2, self.num_features),
                        common.ResidualGroup(
-                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.up1 = nn.Sequential(*modules_up1)
 
         self.up1_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_up2 = [common.UpSampler(2, self.num_features),
                        common.ResidualGroup(
-                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.up2 = nn.Sequential(*modules_up2)
         self.up2_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
 
         modules_up3 = [common.UpSampler(2, self.num_features),
                        common.ResidualGroup(
-                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                           self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.up3 = nn.Sequential(*modules_up3)
         self.up3_mo = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         # define tail module
         modules_tail = [
             common.ConvBNReLU2D(self.num_features, out_channels=self.num_channels, kernel_size=3, padding=1,
-                         act=self.act)]
+                         act=self.act, temb_ch=self.temb_ch)]
 
         self.tail = nn.Sequential(*modules_tail)
 
@@ -185,7 +187,7 @@ class ModelBackbone(nn.Module):
     def init_T1_frq_branch(self):
         ### T2frequency branch
         modules_head_fre = [common.ConvBNReLU2D(1, out_channels=self.num_features,
-                                            kernel_size=3, padding=1, act=self.act)]
+                                            kernel_size=3, padding=1, act=self.act, temb_ch=self.temb_ch)]
         self.head_fre_T1 = nn.Sequential(*modules_head_fre)
 
         modules_down1_fre = [common.DownSample(self.num_features, False, False),
@@ -216,43 +218,43 @@ class ModelBackbone(nn.Module):
     def init_T1_spa_branch(self, num_every_group):
         ### spatial branch
         modules_head = [common.ConvBNReLU2D(1, out_channels=self.num_features,
-                                            kernel_size=3, padding=1, act=self.act)]
+                                            kernel_size=3, padding=1, act=self.act, temb_ch=self.temb_ch)]
         self.head_T1 = nn.Sequential(*modules_head)
 
         modules_down1 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down1_T1 = nn.Sequential(*modules_down1)
 
 
         self.down1_mo_T1 = nn.Sequential(common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_down2 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down2_T1 = nn.Sequential(*modules_down2)
 
         self.down2_mo_T1 = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_down3 = [common.DownSample(self.num_features, False, False),
                          common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.down3_T1 = nn.Sequential(*modules_down3)
         self.down3_mo_T1 = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
         modules_neck = [common.ResidualGroup(
-                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None)
+                             self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch)
                          ]
         self.neck_T1 = nn.Sequential(*modules_neck)
 
         self.neck_mo_T1 = nn.Sequential(common.ResidualGroup(
-            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None))
+            self.num_features, 3, 4, act=self.act, n_resblocks=num_every_group, norm=None, temb_ch=self.temb_ch))
 
     def init_modality_fre_fusion(self):
         conv_fuse = []
@@ -265,7 +267,34 @@ class ModelBackbone(nn.Module):
         for i in range(5):
             conv_fuse.append(common.Modality_FuseBlock6(self.num_features))
         self.conv_fuse_spa = nn.Sequential(*conv_fuse)
-        
+
+
+def get_timestep_embedding(timesteps, embedding_dim):
+    """
+    This matches the implementation in Denoising Diffusion Probabilistic Models:
+    From Fairseq.
+    Build sinusoidal embeddings.
+    This matches the implementation in tensor2tensor, but differs slightly
+    from the description in Section 3.5 of "Attention Is All You Need".
+    """
+    assert len(timesteps.shape) == 1
+
+    half_dim = embedding_dim // 2
+    emb = math.log(10000) / (half_dim - 1)
+    emb = torch.exp(torch.arange(half_dim, dtype=torch.float32) * -emb)
+    emb = emb.to(device=timesteps.device)
+    emb = timesteps.float()[:, None] * emb[None, :]
+    emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=1)
+    if embedding_dim % 2 == 1:  # zero pad
+        emb = torch.nn.functional.pad(emb, (0,1,0,0))
+    return emb
+
+
+def nonlinearity(x):
+    # swish
+    return x*torch.sigmoid(x)
+
+
         
 class TwoBranchModel(pl.LightningModule):
     def __init__(self, image_channels, 
@@ -281,12 +310,25 @@ class TwoBranchModel(pl.LightningModule):
         self.use_fre_mix = False
         self.use_res = True
 
+        self.temb_ch = num_channels * 4
+        # timestep embedding
+        self.temb = nn.Module()
+        self.temb.dense = nn.ModuleList([
+            torch.nn.Linear(num_channels,
+                            self.temb_ch),
+            torch.nn.Linear(self.temb_ch,
+                            self.temb_ch),
+        ])
 
-        self.model = ModelBackbone(num_features, act, base_num_every_group, num_channels)
+
+
+        self.model = ModelBackbone(num_features, act,
+                                   base_num_every_group, num_channels,
+                                   temb_ch=self.temb_ch)
         
-        self.image_discriminator = NLayerDiscriminator(
-            image_channels, disc_channels, disc_layers, 
-            norm_layer=nn.BatchNorm2d)
+        # self.image_discriminator = NLayerDiscriminator(
+        #     image_channels, disc_channels, disc_layers,
+        #     norm_layer=nn.BatchNorm2d)
         
         self.amploss = AMPLoss() #.to(self.device, non_blocking=True)
         self.phaloss = PhaLoss() # .to(self.device, non_blocking=True)
@@ -310,34 +352,18 @@ class TwoBranchModel(pl.LightningModule):
         
 
 
-    def configure_optimizers(self):
-        ls = 1e-6
-        
-        params = list(self.model.parameters())
-        print('Total number of parameters:', sum(p.numel() for p in params))
-        
-        opt_ae = torch.optim.AdamW(params, lr=lr, betas=(0.5, 0.9))
-        
-        opt_disc = torch.optim.AdamW(list(self.image_discriminator.parameters()),
-                                    # list(self.video_discriminator.parameters()),
-                                    lr=lr, betas=(0.5, 0.9))
-        
-        scheduler_ae = {
-                'scheduler': torch.optim.lr_scheduler.MultiStepLR(opt_ae, milestones=[40000,50000,60000], gamma=0.1),
-                'interval': 'step',
-                'frequency': 1
-            }
-        scheduler_disc = {
-                'scheduler': torch.optim.lr_scheduler.MultiStepLR(opt_disc, milestones=[40000,50000,60000], gamma=0.1),
-                'interval': 'step',
-                'frequency': 1
-            }
-        return [opt_ae, opt_disc], [scheduler_ae, scheduler_disc]
-    
-
     def forward(self, main, aux, t):
         if self.use_fre_mix:
             x_fre = common.frequency_transform(main)
+
+
+        # timestep embedding
+        temb = get_timestep_embedding(t, self.ch)
+        temb = self.temb.dense[0](temb)
+        temb = nonlinearity(temb)
+        temb = self.temb.dense[1](temb)
+
+
 
         #### T1 fre encoder  # T1
         t1_fre = self.model.head_fre_T1(aux) # 128
@@ -355,109 +381,109 @@ class TwoBranchModel(pl.LightningModule):
         neck_fre_mo_t1 = self.model.neck_fre_mo_T1(neck_fre_t1)
 
         #### T2 fre encoder and T1 & T2 fre fusion
-        x_fre = self.model.head_fre(main) # 128
-        x_fre_fuse = self.model.conv_fuse_fre[0](t1_fre, x_fre)
+        x_fre = self.model.head_fre(main, temb) # 128
+        x_fre_fuse = self.model.conv_fuse_fre[0](t1_fre, x_fre, temb)
 
-        down1_fre = self.model.down1_fre(x_fre_fuse)# 64
-        down1_fre_mo = self.model.down1_fre_mo(down1_fre)
-        down1_fre_mo_fuse = self.model.conv_fuse_fre[1](down1_fre_mo_t1, down1_fre_mo)
+        down1_fre = self.model.down1_fre(x_fre_fuse, temb)# 64
+        down1_fre_mo = self.model.down1_fre_mo(down1_fre, temb)
+        down1_fre_mo_fuse = self.model.conv_fuse_fre[1](down1_fre_mo_t1, down1_fre_mo, temb)
 
-        down2_fre = self.model.down2_fre(down1_fre_mo_fuse) # 32
-        down2_fre_mo = self.model.down2_fre_mo(down2_fre)
-        down2_fre_mo_fuse = self.model.conv_fuse_fre[2](down2_fre_mo_t1, down2_fre_mo)
+        down2_fre = self.model.down2_fre(down1_fre_mo_fuse, temb) # 32
+        down2_fre_mo = self.model.down2_fre_mo(down2_fre, temb)
+        down2_fre_mo_fuse = self.model.conv_fuse_fre[2](down2_fre_mo_t1, down2_fre_mo, temb)
 
-        down3_fre = self.model.down3_fre(down2_fre_mo_fuse) # 16
-        down3_fre_mo = self.model.down3_fre_mo(down3_fre)
-        down3_fre_mo_fuse = self.model.conv_fuse_fre[3](down3_fre_mo_t1, down3_fre_mo)
+        down3_fre = self.model.down3_fre(down2_fre_mo_fuse, temb) # 16
+        down3_fre_mo = self.model.down3_fre_mo(down3_fre, temb)
+        down3_fre_mo_fuse = self.model.conv_fuse_fre[3](down3_fre_mo_t1, down3_fre_mo, temb)
 
-        neck_fre = self.model.neck_fre(down3_fre_mo_fuse) # 16
-        neck_fre_mo = self.model.neck_fre_mo(neck_fre)
-        neck_fre_mo_fuse = self.model.conv_fuse_fre[4](neck_fre_mo_t1, neck_fre_mo)
+        neck_fre = self.model.neck_fre(down3_fre_mo_fuse, temb) # 16
+        neck_fre_mo = self.model.neck_fre_mo(neck_fre, temb)
+        neck_fre_mo_fuse = self.model.conv_fuse_fre[4](neck_fre_mo_t1, neck_fre_mo, temb)
 
 
         #### T2 fre decoder
         neck_fre_mo = neck_fre_mo_fuse + down3_fre_mo_fuse
 
-        up1_fre = self.model.up1_fre(neck_fre_mo) # 32
-        up1_fre_mo = self.model.up1_fre_mo(up1_fre)
+        up1_fre = self.model.up1_fre(neck_fre_mo, temb) # 32
+        up1_fre_mo = self.model.up1_fre_mo(up1_fre, temb)
         up1_fre_mo = up1_fre_mo + down2_fre_mo_fuse
 
-        up2_fre = self.model.up2_fre(up1_fre_mo) # 64
-        up2_fre_mo = self.model.up2_fre_mo(up2_fre)
+        up2_fre = self.model.up2_fre(up1_fre_mo, temb) # 64
+        up2_fre_mo = self.model.up2_fre_mo(up2_fre, temb)
         up2_fre_mo = up2_fre_mo + down1_fre_mo_fuse
 
-        up3_fre = self.model.up3_fre(up2_fre_mo) # 128
-        up3_fre_mo = self.model.up3_fre_mo(up3_fre)
+        up3_fre = self.model.up3_fre(up2_fre_mo, temb) # 128
+        up3_fre_mo = self.model.up3_fre_mo(up3_fre, temb)
         up3_fre_mo = up3_fre_mo + x_fre_fuse
 
-        res_fre = self.model.tail_fre(up3_fre_mo)
+        res_fre = self.model.tail_fre(up3_fre_mo, temb)
 
         #### T1 spa encoder
-        x_t1 = self.model.head_T1(aux)  # 128
+        x_t1 = self.model.head_T1(aux, temb)  # 128
 
-        down1_t1 = self.model.down1_T1(x_t1) # 64
-        down1_mo_t1 = self.model.down1_mo_T1(down1_t1)
+        down1_t1 = self.model.down1_T1(x_t1, temb) # 64
+        down1_mo_t1 = self.model.down1_mo_T1(down1_t1, temb)
 
-        down2_t1 = self.model.down2_T1(down1_mo_t1) # 32
-        down2_mo_t1 = self.model.down2_mo_T1(down2_t1)  # 32
+        down2_t1 = self.model.down2_T1(down1_mo_t1, temb) # 32
+        down2_mo_t1 = self.model.down2_mo_T1(down2_t1, temb)  # 32
 
-        down3_t1 = self.model.down3_T1(down2_mo_t1) # 16
-        down3_mo_t1 = self.model.down3_mo_T1(down3_t1)  # 16
+        down3_t1 = self.model.down3_T1(down2_mo_t1, temb) # 16
+        down3_mo_t1 = self.model.down3_mo_T1(down3_t1, temb)  # 16
 
-        neck_t1 = self.model.neck_T1(down3_mo_t1) # 16
-        neck_mo_t1 = self.model.neck_mo_T1(neck_t1)
+        neck_t1 = self.model.neck_T1(down3_mo_t1, temb) # 16
+        neck_mo_t1 = self.model.neck_mo_T1(neck_t1, temb)
 
         #### T2 spa encoder and fusion
-        x = self.model.head(main)  # 128
+        x = self.model.head(main, temb)  # 128
         
-        x_fuse = self.model.conv_fuse_spa[0](x_t1, x)
-        down1 = self.model.down1(x_fuse) # 64
-        down1_fuse = self.model.conv_fuse[0](down1_fre, down1)
-        down1_mo = self.model.down1_mo(down1_fuse)
-        down1_fuse_mo = self.model.conv_fuse[1](down1_fre_mo_fuse, down1_mo)
+        x_fuse = self.model.conv_fuse_spa[0](x_t1, x, temb)
+        down1 = self.model.down1(x_fuse, temb) # 64
+        down1_fuse = self.model.conv_fuse[0](down1_fre, down1, temb)
+        down1_mo = self.model.down1_mo(down1_fuse, temb)
+        down1_fuse_mo = self.model.conv_fuse[1](down1_fre_mo_fuse, down1_mo, temb)
 
-        down1_fuse_mo_fuse = self.model.conv_fuse_spa[1](down1_mo_t1, down1_fuse_mo)
-        down2 = self.model.down2(down1_fuse_mo_fuse) # 32
-        down2_fuse = self.model.conv_fuse[2](down2_fre, down2)
-        down2_mo = self.model.down2_mo(down2_fuse)  # 32
-        down2_fuse_mo = self.model.conv_fuse[3](down2_fre_mo, down2_mo)
+        down1_fuse_mo_fuse = self.model.conv_fuse_spa[1](down1_mo_t1, down1_fuse_mo, temb)
+        down2 = self.model.down2(down1_fuse_mo_fuse, temb) # 32
+        down2_fuse = self.model.conv_fuse[2](down2_fre, down2, temb)
+        down2_mo = self.model.down2_mo(down2_fuse, temb)  # 32
+        down2_fuse_mo = self.model.conv_fuse[3](down2_fre_mo, down2_mo, temb)
 
-        down2_fuse_mo_fuse = self.model.conv_fuse_spa[2](down2_mo_t1, down2_fuse_mo)
-        down3 = self.model.down3(down2_fuse_mo_fuse) # 16
-        down3_fuse = self.model.conv_fuse[4](down3_fre, down3)
-        down3_mo = self.model.down3_mo(down3_fuse)  # 16
-        down3_fuse_mo = self.model.conv_fuse[5](down3_fre_mo, down3_mo)
+        down2_fuse_mo_fuse = self.model.conv_fuse_spa[2](down2_mo_t1, down2_fuse_mo, temb)
+        down3 = self.model.down3(down2_fuse_mo_fuse, temb) # 16
+        down3_fuse = self.model.conv_fuse[4](down3_fre, down3, temb)
+        down3_mo = self.model.down3_mo(down3_fuse, temb)  # 16
+        down3_fuse_mo = self.model.conv_fuse[5](down3_fre_mo, down3_mo, temb)
 
-        down3_fuse_mo_fuse = self.model.conv_fuse_spa[3](down3_mo_t1, down3_fuse_mo)
-        neck = self.model.neck(down3_fuse_mo_fuse) # 16
-        neck_fuse = self.model.conv_fuse[6](neck_fre, neck)
-        neck_mo = self.model.neck_mo(neck_fuse)
+        down3_fuse_mo_fuse = self.model.conv_fuse_spa[3](down3_mo_t1, down3_fuse_mo, temb)
+        neck = self.model.neck(down3_fuse_mo_fuse, temb) # 16
+        neck_fuse = self.model.conv_fuse[6](neck_fre, neck, temb)
+        neck_mo = self.model.neck_mo(neck_fuse, temb)
         neck_mo = neck_mo + down3_mo
-        neck_fuse_mo = self.model.conv_fuse[7](neck_fre_mo, neck_mo)
+        neck_fuse_mo = self.model.conv_fuse[7](neck_fre_mo, neck_mo, temb)
 
-        neck_fuse_mo_fuse = self.model.conv_fuse_spa[4](neck_mo_t1, neck_fuse_mo)
+        neck_fuse_mo_fuse = self.model.conv_fuse_spa[4](neck_mo_t1, neck_fuse_mo, temb)
         #### T2 spa decoder
-        up1 = self.model.up1(neck_fuse_mo_fuse) # 32
-        up1_fuse = self.model.conv_fuse[8](up1_fre, up1)
-        up1_mo = self.model.up1_mo(up1_fuse)
+        up1 = self.model.up1(neck_fuse_mo_fuse, temb) # 32
+        up1_fuse = self.model.conv_fuse[8](up1_fre, up1, temb)
+        up1_mo = self.model.up1_mo(up1_fuse, temb)
         up1_mo = up1_mo + down2_mo
-        up1_fuse_mo = self.model.conv_fuse[9](up1_fre_mo, up1_mo)
+        up1_fuse_mo = self.model.conv_fuse[9](up1_fre_mo, up1_mo, temb)
 
-        up2 = self.model.up2(up1_fuse_mo) # 64
-        up2_fuse = self.model.conv_fuse[10](up2_fre, up2)
-        up2_mo = self.model.up2_mo(up2_fuse)
+        up2 = self.model.up2(up1_fuse_mo, temb) # 64
+        up2_fuse = self.model.conv_fuse[10](up2_fre, up2, temb)
+        up2_mo = self.model.up2_mo(up2_fuse, temb)
         up2_mo = up2_mo + down1_mo
-        up2_fuse_mo = self.model.conv_fuse[11](up2_fre_mo, up2_mo)
+        up2_fuse_mo = self.model.conv_fuse[11](up2_fre_mo, up2_mo, temb)
 
-        up3 = self.model.up3(up2_fuse_mo) # 128
+        up3 = self.model.up3(up2_fuse_mo, temb) # 128
 
-        up3_fuse = self.model.conv_fuse[12](up3_fre, up3)
-        up3_mo = self.model.up3_mo(up3_fuse)
+        up3_fuse = self.model.conv_fuse[12](up3_fre, up3, temb)
+        up3_mo = self.model.up3_mo(up3_fuse, temb)
 
         up3_mo = up3_mo + x
-        up3_fuse_mo = self.model.conv_fuse[13](up3_fre_mo, up3_mo)
+        up3_fuse_mo = self.model.conv_fuse[13](up3_fre_mo, up3_mo, temb)
 
-        res = self.model.tail(up3_fuse_mo)
+        res = self.model.tail(up3_fuse_mo, temb)
         if self.use_res:
             res = res + main
             res_fre = res_fre + main

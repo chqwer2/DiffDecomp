@@ -25,7 +25,7 @@ import imageio
 # from torch.utils.tensorboard import SummaryWriter
 from .degradation import get_fade_kernels, get_ksu_kernel, apply_ksu_kernel, apply_tofre, apply_to_spatial
 from dataset import Dataset, Dataset_Aug1, BrainDataset
-
+from .st_branch_model.lpips import LPIPS
 try:
     from apex import amp
 
@@ -268,58 +268,88 @@ class GaussianDiffusion(nn.Module):
 
 
                 elif self.sampling_routine == 'x0_step_down':
+                    if t <= 1:
+                        if t == 1:
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                k = torch.stack([rand_kernels[:, i]], 1)
+                            else:
+                                k = torch.stack([self.kspace_kernels[i]], 1)
 
-                    with torch.no_grad():
-                        if rand_kernels is not None:
-                            k = torch.stack([rand_kernels[:, t - 1]], 1)
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                            faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
                         else:
-                            k = torch.stack([self.kspace_kernels[t - 1]], 1)
+                            faded_recon_sample = recon_sample
+                    else:
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                k = torch.stack([rand_kernels[:, t - 2]], 1)
+                            else:
+                                k = torch.stack([self.kspace_kernels[t - 2]], 1)
 
-                        recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k)
+                            recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k)
 
-                        if rand_kernels is not None:
-                            k = torch.stack([rand_kernels[:, t ]], 1)
-                        else:
-                            k = torch.stack([self.kspace_kernels[t]], 1)
+                            if rand_kernels is not None:
+                                k = torch.stack([rand_kernels[:, t -1 ]], 1)
+                            else:
+                                k = torch.stack([self.kspace_kernels[t - 1]], 1)
 
-                        recon_sample = apply_ksu_kernel(recon_sample, k)
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
 
-                        # with torch.no_grad():
-                        #     recon_sample_sub_1 = recon_sample    # D(x_0, s-1)
-                        #     if rand_kernels is not None:
-                        #         k = torch.stack([rand_kernels[:, i]], 1)
-                        #     else:
-                        #         k = torch.stack([self.kspace_kernels[i]], 1)
-                        #
-                        #     recon_sample = apply_ksu_kernel(recon_sample, k)
-
-                    faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                    # for i in range(t):
+                    #     with torch.no_grad():
+                    #         recon_sample_sub_1 = recon_sample    # D(x_0, s-1)
+                    #         if rand_kernels is not None:
+                    #             k = torch.stack([rand_kernels[:, i]], 1)
+                    #         else:
+                    #             k = torch.stack([self.kspace_kernels[i]], 1)
+                    #
+                    #         recon_sample = apply_ksu_kernel(recon_sample, k)
+                    #
+                        faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
                 elif self.sampling_routine == 'x0_step_down_fre':
                     recon_x0_hat = recon_sample
-                    with torch.no_grad():
-                        if rand_kernels is not None:
-                            kt_sub_1 = torch.stack([rand_kernels[:, t - 2]], 1)
+                    if t <= 1:
+                        if t == 1:
+                            recon_sample_sub_1 = recon_sample
+                            if rand_kernels is not None:
+                                k = torch.stack([rand_kernels[:, i]], 1)
+                            else:
+                                k = torch.stack([self.kspace_kernels[i]], 1)
+
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                            faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
                         else:
-                            kt_sub_1 = torch.stack([self.kspace_kernels[t - 2]], 1)
+                            faded_recon_sample = recon_sample
+                    else:
+                        with torch.no_grad():
+                            if rand_kernels is not None:
+                                print("DEBUG  t-2:", t-2)
+                                kt_sub_1 = torch.stack([rand_kernels[:, t - 2]], 1)
+                            else:
+                                kt_sub_1 = torch.stack([self.kspace_kernels[t - 2]], 1)
 
-                        recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
-                        recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
+                            recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
+                            recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
 
-                        if rand_kernels is not None:
-                            kt = torch.stack([rand_kernels[:, t-1 ]], 1)
-                        else:
-                            kt = torch.stack([self.kspace_kernels[t-1]], 1)
+                            if rand_kernels is not None:
+                                kt = torch.stack([rand_kernels[:, t-1 ]], 1)
+                            else:
+                                kt = torch.stack([self.kspace_kernels[t-1]], 1)
 
-                        recon_sample_fre, kt = apply_tofre(recon_sample, kt)
-                        recon_sample_fre = recon_sample_fre * kt
+                            recon_sample_fre, kt = apply_tofre(recon_sample, kt)
+                            recon_sample_fre = recon_sample_fre * kt
 
-                    faded_recon_sample_fre, _ = apply_tofre(recon_sample, kt)
-                    # Mask Region...
-                    faded_recon_sample_fre = faded_recon_sample_fre + (kt_sub_1 - kt) * (recon_sample_sub_1_fre - recon_sample_fre)
+                        faded_recon_sample_fre, _ = apply_tofre(recon_sample, kt)
+                        # Mask Region...
+                        # print("Sum of (kt_sub_1 - kt) = ", torch.sum(kt), torch.sum(kt_sub_1))
+                        faded_recon_sample_fre = faded_recon_sample_fre + (kt_sub_1 - kt) * (recon_sample_sub_1_fre - recon_sample_fre)
 
-                    faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
-                    # faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                        faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
+                        # faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
 
             recon_sample = faded_recon_sample
@@ -552,10 +582,11 @@ class GaussianDiffusion(nn.Module):
 
             # LPIPS
             if self.use_lpips:
-                lpips_weight = 0.01
+                lpips_weight = 0.1
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
 
+                # print("lpips_loss:", lpips_loss)
 
             if self.use_fre_loss:
                 fft_weight = 0.01
@@ -657,7 +688,7 @@ class Trainer(object):
         os.makedirs(results_folder, exist_ok=True)
         self.results_folder = Path(results_folder)
         # self.results_folder.mkdir(exist_ok=True)
-
+        self.lpips = LPIPS().eval()
 
         self.reset_parameters()
 
@@ -787,7 +818,9 @@ class Trainer(object):
 
                 ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
                 psnr = psnr(img_, og_img_, data_range=1).mean()
-                lpips = self.ema_model.module.lpips(all_images, og_img).mean()
+                # if self.backbone == 'twobranch':
+                lpips = self.lpips(all_images, og_img).mean()
+
                 print("=== Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
 
 

@@ -121,13 +121,22 @@ class AdaptiveNorm(nn.Module):
         return self.w_0 * x + self.w_1 * self.bn(x)
 
 
+def nonlinearity(x):
+    # swish
+    return x*torch.sigmoid(x)
+
 class ConvBNReLU2D(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1,
-                 bias=False, act=None, norm=None):
+                 bias=False, act=None, norm=None, temb_ch=None):
         super(ConvBNReLU2D, self).__init__()
 
         self.layers = torch.nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
                                       stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
+
+        self.temb_proj = torch.nn.Linear(temb_ch,
+                                         out_channels)
+
+
         self.act = None
         self.norm = None
         if norm == 'BN':
@@ -158,9 +167,11 @@ class ConvBNReLU2D(torch.nn.Module):
         elif act == 'SoftMax':
             self.act = torch.nn.Softmax2d()
 
-    def forward(self, inputs):
+    def forward(self, inputs, temp=None):
 
         out = self.layers(inputs)
+
+        out = out + self.temb_proj(nonlinearity(out))[:, :, None, None]
 
         if self.norm is not None:
             out = self.norm(out)
@@ -201,14 +212,17 @@ class DownSample(nn.Module):
 
 
 class ResidualGroup(nn.Module):
-    def __init__(self, n_feat, kernel_size, reduction, act,norm, n_resblocks):
+    def __init__(self, n_feat, kernel_size, reduction, act,norm, n_resblocks, temb_ch=None):
         super(ResidualGroup, self).__init__()
         modules_body = [
             ResBlock(n_feat) for _ in range(n_resblocks)]
 
-        modules_body.append(ConvBNReLU2D(n_feat, n_feat, kernel_size, padding=1, act=act, norm=norm))
+        modules_body.append(ConvBNReLU2D(n_feat, n_feat, kernel_size, padding=1, act=act, norm=norm, temb_ch=temb_ch))
         self.body = nn.Sequential(*modules_body)
         self.re_scale = Scale(1)
+        # self.temb_proj = torch.nn.Linear(temb_ch,
+        #                                  n_feat)
+
 
     def forward(self, x):
         res = self.body(x)

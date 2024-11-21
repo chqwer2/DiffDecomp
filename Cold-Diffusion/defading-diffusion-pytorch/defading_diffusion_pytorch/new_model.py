@@ -194,6 +194,8 @@ class Model(nn.Module):
         super().__init__()
         self.ch = ch
         self.temb_ch = self.ch*4
+
+
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
         self.resolution = resolution
