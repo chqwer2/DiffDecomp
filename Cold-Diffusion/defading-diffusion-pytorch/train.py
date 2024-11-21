@@ -167,7 +167,7 @@ else:
         number = os.listdir(args.save_folder.rstrip(name)).__len__()
         args.save_folder = args.save_folder + f"_{number}"
 
-    save_and_sample_every = 50
+    save_and_sample_every = 100
 
 
 trainer = Trainer(

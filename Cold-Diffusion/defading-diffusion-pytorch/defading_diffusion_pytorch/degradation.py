@@ -140,6 +140,20 @@ def get_ksu_kernel(timesteps, image_size,
 
 
 def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
+    fft, mask = apply_tofre(x_start, mask, pixel_range)
+
+    try:
+        fft = fft * mask
+    except:
+        print("Error in transforming fft:", fft.shape, mask.shape)
+        fft = fft * mask
+
+    x_ksu = apply_to_spatial(fft, pixel_range)
+
+    return x_ksu
+
+
+def apply_tofre(x_start, mask, pixel_range='-1_1'):
     if pixel_range == '0_1':
         pass
 
@@ -155,12 +169,9 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
 
     fft = fftshift(fft2(x_start))
     mask = mask.to(fft.device)
+    return fft, mask
 
-    try:
-        fft = fft * mask
-    except:
-        print("Error in transforming fft:", fft.shape, mask.shape)
-        fft = fft * mask
+def apply_to_spatial(fft, pixel_range='-1_1'):
 
     x_ksu = ifft2(ifftshift(fft))
 
@@ -178,6 +189,13 @@ def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
         raise ValueError(f"Unknown pixel range {pixel_range}.")
 
     return x_ksu
+
+
+
+
+
+
+
 
 
 if __name__ == "__main__":

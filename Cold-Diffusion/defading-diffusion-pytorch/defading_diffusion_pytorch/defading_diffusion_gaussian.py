@@ -23,7 +23,7 @@ import numpy as np
 import imageio
 
 # from torch.utils.tensorboard import SummaryWriter
-from .degradation import get_fade_kernels, get_ksu_kernel, apply_ksu_kernel
+from .degradation import get_fade_kernels, get_ksu_kernel, apply_ksu_kernel, apply_tofre, apply_to_spatial
 from dataset import Dataset, Dataset_Aug1, BrainDataset
 
 try:
@@ -145,8 +145,9 @@ class GaussianDiffusion(nn.Module):
             self.phaloss = self.restore_fn.phaloss  # .to(self.device, non_blocking=True)
             self.lpips = self.restore_fn.perceptual_model  # .to(self.device, non_blocking=True)
 
-        self.use_fre_loss = False
+        self.use_fre_loss = True
         self.update_kernel = True
+        self.use_lpips = True
 
 
     def get_new_kspace(self):
@@ -221,7 +222,7 @@ class GaussianDiffusion(nn.Module):
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
-                # recon_sample = recon_sample // 2 + recon_fre // 2  # TODO, turn off first
+                recon_sample = recon_sample // 2 + recon_fre // 2
 
             if direct_recons is None:
                 direct_recons = recon_sample
@@ -253,30 +254,73 @@ class GaussianDiffusion(nn.Module):
 
             elif self.degradation_type == 'kspace':
                 # faded_recon_sample = recon_sample
-                if self.sampling_routine == 'default':
-                    for i in range(t - 1):
-                        with torch.no_grad():
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, i]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[i]], 1)
 
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                if self.sampling_routine == 'default':
+                    with torch.no_grad():
+                        if rand_kernels is not None:
+                            k = torch.stack([rand_kernels[:, t-1]], 1)
+                        else:
+                            k = torch.stack([self.kspace_kernels[t-1]], 1)
+
+                        recon_sample = apply_ksu_kernel(recon_sample, k)
 
                     faded_recon_sample = recon_sample
 
-                elif self.sampling_routine == 'x0_step_down':
-                    for i in range(t):
-                        with torch.no_grad():
-                            recon_sample_sub_1 = recon_sample
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, i]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[i]], 1)
 
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                elif self.sampling_routine == 'x0_step_down':
+
+                    with torch.no_grad():
+                        if rand_kernels is not None:
+                            k = torch.stack([rand_kernels[:, t - 1]], 1)
+                        else:
+                            k = torch.stack([self.kspace_kernels[t - 1]], 1)
+
+                        recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k)
+
+                        if rand_kernels is not None:
+                            k = torch.stack([rand_kernels[:, t ]], 1)
+                        else:
+                            k = torch.stack([self.kspace_kernels[t]], 1)
+
+                        recon_sample = apply_ksu_kernel(recon_sample, k)
+
+                        # with torch.no_grad():
+                        #     recon_sample_sub_1 = recon_sample    # D(x_0, s-1)
+                        #     if rand_kernels is not None:
+                        #         k = torch.stack([rand_kernels[:, i]], 1)
+                        #     else:
+                        #         k = torch.stack([self.kspace_kernels[i]], 1)
+                        #
+                        #     recon_sample = apply_ksu_kernel(recon_sample, k)
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
+                elif self.sampling_routine == 'x0_step_down_fre':
+                    recon_x0_hat = recon_sample
+                    with torch.no_grad():
+                        if rand_kernels is not None:
+                            kt_sub_1 = torch.stack([rand_kernels[:, t - 1]], 1)
+                        else:
+                            kt_sub_1 = torch.stack([self.kspace_kernels[t - 1]], 1)
+
+                        recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
+                        recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
+
+                        if rand_kernels is not None:
+                            kt = torch.stack([rand_kernels[:, t ]], 1)
+                        else:
+                            kt = torch.stack([self.kspace_kernels[t]], 1)
+
+                        recon_sample_fre, kt = apply_tofre(recon_sample, kt)
+                        recon_sample_fre = recon_sample_fre * kt
+
+                    faded_recon_sample_fre, _ = apply_tofre(recon_sample, kt)
+                    # Mask Region...
+                    faded_recon_sample_fre = faded_recon_sample_fre + (kt_sub_1 - kt) * (recon_sample_sub_1_fre - recon_sample_fre)
+
+                    faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
+                    # faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+
 
             recon_sample = faded_recon_sample
             t -= 1
@@ -425,8 +469,6 @@ class GaussianDiffusion(nn.Module):
             if self.update_kernel:
                 self.get_new_kspace()
             rand_kernels = []
-            # rand_x = torch.randint(0, self.image_size + 1, (x_start.size(0),),
-            #                        device=x_start.device).long()
 
             for i in range(x_start.size(0),):
                 rand_kernels.append(torch.stack(
@@ -434,16 +476,6 @@ class GaussianDiffusion(nn.Module):
                      : self.image_size] for j in range(len(self.kspace_kernels))]))
 
             rand_kernels = torch.stack(rand_kernels)
-
-            # print("new rand kernels shape:", rand_kernels.shape)  # new rand kernels shape: torch.Size([24, 5, 128, 128])
-            #
-            #
-            # rand_kernels = self.kspace_kernels
-            # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
-
-
-            
-        # print("rand_kernels shape:", rand_kernels.shape)   # rand_kernels shape: torch.Size([24, 5, 128, 128])
 
         max_iters = torch.max(t)
         all_fades = []
@@ -455,8 +487,6 @@ class GaussianDiffusion(nn.Module):
                         k = torch.stack([rand_kernels[:, i],
                                          rand_kernels[:, i],
                                          rand_kernels[:, i]], 1)
-
-
                     else:
                         k = self.fade_kernels[i]   # fade k=torch.Size([24, 3, 128, 128]),
 
@@ -513,16 +543,18 @@ class GaussianDiffusion(nn.Module):
         elif self.backbone == 'twobranch':
             x_recon, x_recon_fre = self.restore_fn(x_mix, aux, t)
 
-            loss_spatial = self.reconstruct_loss(x_start, x_recon)  # -1.0 ~ 1.0
+            loss_spatial = self.reconstruct_loss(x_start, x_recon)
             loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
             loss = loss_spatial + loss_freq
 
             if np.random.rand() < 0.01:
                 print("loss_spatial:", loss_spatial, "loss_freq:", loss_freq)
+
             # LPIPS
-            # lpips_weight = 0.01
-            # lpips_loss = self.lpips(x_recon, x_start)
-            # loss += lpips_weight * lpips_loss
+            if self.use_lpips:
+                lpips_weight = 0.01
+                lpips_loss = self.lpips(x_recon, x_start).mean()
+                loss += lpips_weight * lpips_loss
 
 
             if self.use_fre_loss:
@@ -731,10 +763,10 @@ class Trainer(object):
                 xt = (xt + 1) * 0.5
 
 
-                # all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
-                # direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
+                all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
+                direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
 
-                return_sample = (xt - xt.min()) / (xt.max() - xt.min())
+                # return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
                 print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
                 print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
