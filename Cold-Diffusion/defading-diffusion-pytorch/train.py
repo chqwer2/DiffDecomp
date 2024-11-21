@@ -81,6 +81,8 @@ diffusion_type = args.diffusion_type
 # diffusion_type = "twobranch_fade"           # model_degradation      # fade | kspace
 model_name = diffusion_type.split("_")[0]  # unet | twobranch
 
+save_and_sample_every = 1000
+
 if args.debug:
     args.train_steps = 100
     args.time_steps = 2
@@ -148,7 +150,6 @@ diffusion = GaussianDiffusion(
     fade_routine=args.fade_routine,
     sampling_routine=args.sampling_routine,
     discrete=args.discrete
-    # num_channels=args.num_channels     # ?
 ).cuda()
 
 
@@ -157,12 +158,16 @@ diffusion = torch.nn.DataParallel(diffusion, device_ids=range(torch.cuda.device_
 print("=== train_steps:", args.train_steps)
 if args.debug:
     args.save_folder = args.save_folder + "_debug"
+
 else:
     args.save_folder = args.save_folder + f"_{args.tag}"
+
     if os.path.exists(args.save_folder):
         name = args.save_folder.split(".")[-1]
-        number = os.listdir(args.save_folder.rstrip(name)).count
+        number = os.listdir(args.save_folder.rstrip(name)).__len__()
         args.save_folder = args.save_folder + f"_{number}"
+
+    save_and_sample_every = 50
 
 
 trainer = Trainer(
@@ -174,7 +179,7 @@ trainer = Trainer(
     train_num_steps=args.train_steps,
     gradient_accumulate_every=2,
     ema_decay=0.995,
-    save_and_sample_every=1000,
+    save_and_sample_every=save_and_sample_every,
     fp16=False,
     results_folder=args.save_folder,
     load_path=args.load_path,

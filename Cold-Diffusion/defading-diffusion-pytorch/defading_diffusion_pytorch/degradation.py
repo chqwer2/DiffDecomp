@@ -220,10 +220,9 @@ if __name__ == "__main__":
 
     img = np.concatenate([masks, masked_img], axis=0)
 
-    plt.figure(figsize=(10, 10))
-    plt.imshow(img)   # (1, 128, 1280)
+    plt.figure(figsize=(100, 10))
+    plt.imshow(img)      # (1, 128, 1280)
     plt.show()
-
 
     print("Second stage...")
 
@@ -232,7 +231,7 @@ if __name__ == "__main__":
 
     image_size = 128
     batch_size = 1
-    t = 10
+    t = 50
     kspace_kernels = get_ksu_kernel(t, image_size)   # 2 *
     kspace_kernels = torch.stack(kspace_kernels).squeeze(1)
 
@@ -285,7 +284,7 @@ if __name__ == "__main__":
 
     img = np.concatenate([masks, masked_img], axis=0)
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(100, 10))
     plt.imshow(img)  # (1, 128, 1280)
     plt.show()
 

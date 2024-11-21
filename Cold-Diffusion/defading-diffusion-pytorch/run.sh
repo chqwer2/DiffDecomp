@@ -28,14 +28,18 @@ save_folder=./results/$diffusion_type
 tag=nores
 
 time_step=5  # 50
-sampling_routine=default  # x0_step_down
+sampling_routine=x0_step_down  # x0_step_down
 
 python  train.py --time_steps $time_step --train_steps 700000 \
             --save_folder $save_folder  --tag $tag \
             --data_path $datapath --dataset $dataset \
             --domain $domain --aux_modality $aux_modality \
-            --sampling_routine default \
+            --sampling_routine $sampling_routine \
             --remove_time_embed --residual \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
-            --kernel_std 0.15  # --debug
+            --kernel_std 0.15  --discrete  # --debug
+
+
+
+# --fade_routine Random_Incremental

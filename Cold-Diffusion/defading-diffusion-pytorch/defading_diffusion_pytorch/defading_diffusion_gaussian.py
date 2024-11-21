@@ -203,7 +203,6 @@ class GaussianDiffusion(nn.Module):
                     faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
 
         return_k = k
-        # return_sample = faded_recon_sample
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -222,8 +221,7 @@ class GaussianDiffusion(nn.Module):
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
-                recon_sample = recon_sample // 2 + recon_fre // 2
-
+                # recon_sample = recon_sample // 2 + recon_fre // 2  # TODO, turn off first
 
             if direct_recons is None:
                 direct_recons = recon_sample
@@ -256,7 +254,6 @@ class GaussianDiffusion(nn.Module):
             elif self.degradation_type == 'kspace':
                 # faded_recon_sample = recon_sample
                 if self.sampling_routine == 'default':
-
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
@@ -274,9 +271,10 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
                                 k = torch.stack([rand_kernels[:, i]], 1)
-                                recon_sample = apply_ksu_kernel(recon_sample, k)
                             else:
-                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                k = torch.stack([self.kspace_kernels[i]], 1)
+
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
@@ -370,6 +368,7 @@ class GaussianDiffusion(nn.Module):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
+
                                 recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
                             else:
                                 recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
@@ -382,7 +381,8 @@ class GaussianDiffusion(nn.Module):
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
-                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                k = torch.stack([rand_kernels[:, i]], 1)
+                                recon_sample = apply_ksu_kernel(recon_sample, k)
                             else:
                                 recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
@@ -393,7 +393,8 @@ class GaussianDiffusion(nn.Module):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
-                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                k = torch.stack([rand_kernels[:, i]], 1)
+                                recon_sample = apply_ksu_kernel(recon_sample, k)
                             else:
                                 recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
 
@@ -503,7 +504,6 @@ class GaussianDiffusion(nn.Module):
         x_mix = self.q_sample(x_start=x_start, t=t)
 
         if self.debug_print:
-            # print("x_mix shape:", x_mix.shape)  # x_mix shape: torch.Size([24, 5, 128, 128]
             self.debug_print = False
 
         if self.backbone == 'unet':
@@ -513,14 +513,16 @@ class GaussianDiffusion(nn.Module):
         elif self.backbone == 'twobranch':
             x_recon, x_recon_fre = self.restore_fn(x_mix, aux, t)
 
-            loss_spatial = self.reconstruct_loss(x_start, x_recon)
+            loss_spatial = self.reconstruct_loss(x_start, x_recon)  # -1.0 ~ 1.0
             loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
             loss = loss_spatial + loss_freq
 
+            if np.random.rand() < 0.01:
+                print("loss_spatial:", loss_spatial, "loss_freq:", loss_freq)
             # LPIPS
-            lpips_weight = 0.01
-            lpips_loss = self.lpips(x_recon, x_start)
-            loss += lpips_weight * lpips_loss
+            # lpips_weight = 0.01
+            # lpips_loss = self.lpips(x_recon, x_start)
+            # loss += lpips_weight * lpips_loss
 
 
             if self.use_fre_loss:
@@ -539,6 +541,7 @@ class GaussianDiffusion(nn.Module):
 
         if self.degradation_type == 'fade':
             self.fade_kernels = self.fade_kernels.to(device)
+
         elif self.degradation_type == 'kspace':
             self.kspace_kernels = self.kspace_kernels.to(device)
 
@@ -723,17 +726,18 @@ class Trainer(object):
 
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
-                all_images = (all_images + 1) * 0.5 #+ 0.5
-                direct_recons = (direct_recons + 1) * 0.5 #+ 0.5
+                all_images = (all_images + 1) * 0.5
+                direct_recons = (direct_recons + 1) * 0.5
                 xt = (xt + 1) * 0.5
 
 
-                all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
-                direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
+                # all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
+                # direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
+
                 return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
                 print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
-                print("DEBUG - full_recons shape: ", all_images.shape, all_images.max(), all_images.min())
+                print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
                 print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
                 print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
                 print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
