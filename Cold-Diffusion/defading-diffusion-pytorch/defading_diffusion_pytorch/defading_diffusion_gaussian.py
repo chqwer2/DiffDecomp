@@ -299,17 +299,17 @@ class GaussianDiffusion(nn.Module):
                     recon_x0_hat = recon_sample
                     with torch.no_grad():
                         if rand_kernels is not None:
-                            kt_sub_1 = torch.stack([rand_kernels[:, t - 1]], 1)
+                            kt_sub_1 = torch.stack([rand_kernels[:, t - 2]], 1)
                         else:
-                            kt_sub_1 = torch.stack([self.kspace_kernels[t - 1]], 1)
+                            kt_sub_1 = torch.stack([self.kspace_kernels[t - 2]], 1)
 
                         recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                         recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
 
                         if rand_kernels is not None:
-                            kt = torch.stack([rand_kernels[:, t ]], 1)
+                            kt = torch.stack([rand_kernels[:, t-1 ]], 1)
                         else:
-                            kt = torch.stack([self.kspace_kernels[t]], 1)
+                            kt = torch.stack([self.kspace_kernels[t-1]], 1)
 
                         recon_sample_fre, kt = apply_tofre(recon_sample, kt)
                         recon_sample_fre = recon_sample_fre * kt
