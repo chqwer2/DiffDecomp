@@ -309,6 +309,7 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
+
                 elif self.sampling_routine == 'x0_step_down_fre':
 
                     if t <= 1:
@@ -326,13 +327,13 @@ class GaussianDiffusion(nn.Module):
                             faded_recon_sample = recon_sample
                     else:
                         if rand_kernels is not None:
-                            k_full = torch.stack([rand_kernels[:, -1]], 1)
+                            k_full = torch.stack([rand_kernels[:, -1]], 1).cuda()
                         else:
-                            k_full = torch.stack([self.kspace_kernels[-1]], 1)
+                            k_full = torch.stack([self.kspace_kernels[-1]], 1).cuda()
 
                         with torch.no_grad():
                             if rand_kernels is not None:
-                                print("DEBUG  t-2:", t-2)
+                                # print("DEBUG  t-2:", t-2)
                                 kt_sub_1 = torch.stack([rand_kernels[:, t - 2]], 1)
                             else:
                                 kt_sub_1 = torch.stack([self.kspace_kernels[t - 2]], 1)
@@ -350,12 +351,22 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
+                        k_mask = (kt_sub_1 - kt).cuda()
+                        # k_mask = k_full
 
-                        faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_full) * (recon_sample_sub_1_fre - recon_sample_fre)
-
+                        faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_mask) * (recon_sample_sub_1_fre - recon_sample_fre)
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
-                        # faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                        # Strange black stripe
 
+                    # Add discrete
+                    # if self.discrete:
+                    #     faded_recon_sample = (faded_recon_sample + 1) * 0.5
+                    #     faded_recon_sample = torch.clamp(faded_recon_sample, -1, 1)
+                        # Strange black stripe
+
+                        # faded_recon_sample = (faded_recon_sample * 255)
+                        # faded_recon_sample = faded_recon_sample.int().float() / 255
+                        # faded_recon_sample = faded_recon_sample * 2 - 1
 
             recon_sample = faded_recon_sample
             t -= 1
@@ -818,13 +829,13 @@ class Trainer(object):
 
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
-                all_images = (all_images + 1) * 0.5
-                direct_recons = (direct_recons + 1) * 0.5
+                all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
+                direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
                 xt = (xt + 1) * 0.5
 
                 # Clip
-                all_images = torch.clamp(all_images, 0, 1)
-                direct_recons = torch.clamp(direct_recons, 0, 1)
+                # all_images = torch.clamp(all_images, 0, 1)
+                # direct_recons = torch.clamp(direct_recons, 0, 1)
 
                 # return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
@@ -840,8 +851,11 @@ class Trainer(object):
                 # Calculate SSIM and PSNR, LPIPS
                 from skimage.metrics import structural_similarity as ssim
                 from skimage.metrics import peak_signal_noise_ratio as psnr
+
                 img_ = all_images.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                 og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                img_ = np.clip(img_, 0, 1)
+
                 print("img_ shape: ", img_.shape, img_.max(), img_.min())
                 print("og_img_ shape: ", og_img_.shape, og_img_.max(), og_img_.min())
 

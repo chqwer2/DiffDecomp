@@ -33,10 +33,10 @@ save_folder=./results/$diffusion_type
 
 time_step=50
 image_size=64
-sampling_routine=x0_step_down_fre   # x0_step_down  | x0_step_down_fre
-loss_type=l1  #   1     # l2 | l1 | l2_l1
-tag=l1_x0_step_down_fre      # x0_step_down | x0_step_down_fre
-deviceid=0
+sampling_routine=default  # x0_step_down  # default | x0_step_down  | x0_step_down_fre
+loss_type=l2  #   1     # l2 | l1 | l2_l1
+tag=l1_default     # x0_step_down | x0_step_down_fre
+deviceid=5
 # fre_before_attn + l1
 
 
@@ -53,3 +53,5 @@ python  train.py --time_steps $time_step --train_steps 700000 \
 
 
 # --fade_routine Random_Incremental
+
+

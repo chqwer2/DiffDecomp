@@ -440,4 +440,4 @@ class Model(nn.Module):
         h = nonlinearity(h)
         h = self.spatial.conv_out(h)
 
-        return h # + x
+        return h
