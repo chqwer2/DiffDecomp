@@ -344,8 +344,6 @@ class Branch(nn.Module):
                                         stride=1,
                                         padding=1)
 
-        self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
-        self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
 
 class Model(nn.Module):
@@ -376,6 +374,9 @@ class Model(nn.Module):
                                      attn_resolutions=attn_resolutions,
                                      dropout=dropout, resamp_with_conv=resamp_with_conv,
                                      in_channels=in_channels, resolution=resolution)
+
+        self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
+        self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
 
 
