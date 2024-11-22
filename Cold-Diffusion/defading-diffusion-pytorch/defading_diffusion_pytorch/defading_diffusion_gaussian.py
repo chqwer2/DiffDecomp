@@ -140,10 +140,12 @@ class GaussianDiffusion(nn.Module):
         self.discrete = discrete
 
         # Frequency Loss
-        if self.backbone == 'twobranch':
+        if self.backbone == 'twobranch' or self.backbone == 'twounet':
             self.amploss = self.restore_fn.amploss  # .to(self.device, non_blocking=True)
             self.phaloss = self.restore_fn.phaloss  # .to(self.device, non_blocking=True)
-            self.lpips = self.restore_fn.perceptual_model  # .to(self.device, non_blocking=True)
+
+
+        self.lpips = LPIPS().eval().cuda()  # .to(self.device, non_blocking=True)
 
         self.use_fre_loss = True
         self.update_kernel = True
@@ -219,8 +221,8 @@ class GaussianDiffusion(nn.Module):
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
-            elif sekf.backbone == "twounet":
-                recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
+            elif self.backbone == "twounet":
+                recon_sample = self.restore_fn(faded_recon_sample, aux, k, step)
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
@@ -423,7 +425,7 @@ class GaussianDiffusion(nn.Module):
             if self.backbone == "unet":
                 recon_sample = self.restore_fn(faded_recon_sample, step)
             elif self.backbone == "twounet":
-                recon_sample = self.restore_fn(faded_recon_sample, aux, step)
+                recon_sample = self.restore_fn(faded_recon_sample, aux, k, step)
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
@@ -553,7 +555,7 @@ class GaussianDiffusion(nn.Module):
             choose_fade = choose_fade.int().float() / 255
             choose_fade = choose_fade * 2 - 1
 
-        return choose_fade
+        return choose_fade, k
 
     def reconstruct_loss(self, x_start, x_recon):
         if self.loss_type == 'l1':
@@ -566,7 +568,7 @@ class GaussianDiffusion(nn.Module):
 
     def p_losses(self, x_start, aux, t):
         self.debug_print = False
-        x_mix = self.q_sample(x_start=x_start, t=t)
+        x_mix, k = self.q_sample(x_start=x_start, t=t)
 
         if self.debug_print:
             self.debug_print = False
@@ -574,6 +576,28 @@ class GaussianDiffusion(nn.Module):
         if self.backbone == 'unet':
             x_recon = self.restore_fn(x_mix, t)
             loss = self.reconstruct_loss(x_start, x_recon)
+
+        elif self.backbone == 'twounet':
+            x_recon = self.restore_fn(x_mix, aux, k, t)
+            loss = self.reconstruct_loss(x_start, x_recon)
+            # if np.random.rand() < 0.01:
+            #     print("loss_spatial:", loss_spatial, "loss_freq:", loss_freq)
+
+                # LPIPS
+            if self.use_lpips:
+                lpips_weight = 0.1
+                lpips_loss = self.lpips(x_recon, x_start).mean()
+                loss += lpips_weight * lpips_loss
+
+
+            if self.use_fre_loss:
+                fft_weight = 0.1
+                amp = self.amploss(x_recon, x_start)
+                pha = self.phaloss(x_recon, x_start)
+
+                loss += fft_weight * (amp + pha)
+
+
 
         elif self.backbone == 'twobranch':
             x_recon, x_recon_fre = self.restore_fn(x_mix, aux, t)

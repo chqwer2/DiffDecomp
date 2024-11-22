@@ -2,6 +2,8 @@ import math
 import torch
 import torch.nn as nn
 
+from .st_branch_model.utils import AMPLoss, PhaLoss
+
 
 def get_timestep_embedding(timesteps, embedding_dim):
     """
@@ -188,11 +190,76 @@ class AttnBlock(nn.Module):
 
 
 
+class FreBlock(nn.Module):
+    def __init__(self, channels):
+        super(FreBlock, self).__init__()
+
+        self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
+        self.amp_pha_fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1),
+                                          nn.LeakyReLU(0.1, inplace=True),
+                                      nn.Conv2d(channels, 2*channels, 3, 1, 1))
+
+        # self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
+        #                               nn.Conv2d(channels, channels, 3, 1, 1))
+        self.post = nn.Conv2d(channels, channels, 1, 1, 0)
+
+
+    def forward(self, x, k=None):
+        _, _, H, W = x.shape
+        # k shape, msF_component_fuse shape torch.Size([24, 1, 128, 128]) torch.Size([24, 256, 16, 9])
+
+        # rfft2 输出的形状 (半频谱): (rows, cols//2 + 1)
+        half_W = W // 2 + 1
+        # down-scale
+        k = torch.nn.functional.interpolate(k, size=(H, W), mode='bilinear', align_corners=False).cuda()
+        k = k[...,:half_W]
+
+
+        msF = torch.fft. rfft2(self.fpre(x)+1e-8, norm='backward')
+
+        msF_amp = torch.abs(msF)
+        msF_pha = torch.angle(msF)
+
+        channels = msF_amp.shape[1]
+        msF_component = torch.concat([msF_amp, msF_pha], dim=1)
+        msF_component_fuse = self.amp_pha_fuse(msF_component) # + msF_component
+
+        # print("k shape, msF_component_fuse shape", k.shape, msF_component_fuse.shape, x.shape, channels)
+        # print("msF_amp shape, msF_pha shape", msF_amp.shape, msF_pha.shape)
+
+        # torch.Size([24, 1, 128, 128]) torch.Size([24, 256, 16, 9]) torch.Size([24, 256, 16, 16])
+
+
+        amp_fuse = (1-k) * msF_component_fuse[:, :channels, :, :] + msF_amp
+        pha_fuse = (1-k) * msF_component_fuse[:, channels:, :, :] + msF_pha
+
+
+        real = amp_fuse * torch.cos(pha_fuse) + 1e-8
+        imag = amp_fuse * torch.sin(pha_fuse) + 1e-8
+
+        out = torch.complex(real, imag)+1e-8
+        out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='backward'))
+        out = self.post(out)
+        out = out + x
+        out = torch.nan_to_num(out, nan=1e-5, posinf=1e-5, neginf=1e-5)
+
+        return out
+
+
 class Branch(nn.Module):
     def __init__(self, *, ch, out_ch, ch_mult=(1, 2, 4, 8), num_res_blocks,
                  attn_resolutions, dropout=0.0, resamp_with_conv=True, in_channels,
                  resolution):
         super().__init__()
+        self.ch = ch
+        self.temb_ch = self.ch*4
+
+
+        self.num_resolutions = len(ch_mult)
+        self.num_res_blocks = num_res_blocks
+        self.resolution = resolution
+        self.in_channels = in_channels
+
         # downsampling
         self.conv_in = torch.nn.Conv2d(in_channels * 2,
                                        self.ch,
@@ -206,6 +273,7 @@ class Branch(nn.Module):
         for i_level in range(self.num_resolutions):
             block = nn.ModuleList()
             attn = nn.ModuleList()
+            fre  = nn.ModuleList()
             block_in = ch * in_ch_mult[i_level]
             block_out = ch * ch_mult[i_level]
             for i_block in range(self.num_res_blocks):
@@ -216,9 +284,11 @@ class Branch(nn.Module):
                 block_in = block_out
                 if curr_res in attn_resolutions:
                     attn.append(AttnBlock(block_in))
+                    fre.append(FreBlock(channels=block_in))
             down = nn.Module()
             down.block = block
             down.attn = attn
+            down.fre = fre
             if i_level != self.num_resolutions - 1:
                 down.downsample = Downsample(block_in, resamp_with_conv)
                 curr_res = curr_res // 2
@@ -236,11 +306,14 @@ class Branch(nn.Module):
                                        temb_channels=self.temb_ch,
                                        dropout=dropout)
 
+        self.mid_fre = FreBlock(channels=block_in)
+
         # upsampling
         self.up = nn.ModuleList()
         for i_level in reversed(range(self.num_resolutions)):
             block = nn.ModuleList()
             attn = nn.ModuleList()
+            fre  = nn.ModuleList()
             block_out = ch * ch_mult[i_level]
             skip_in = ch * ch_mult[i_level]
             for i_block in range(self.num_res_blocks + 1):
@@ -253,9 +326,11 @@ class Branch(nn.Module):
                 block_in = block_out
                 if curr_res in attn_resolutions:
                     attn.append(AttnBlock(block_in))
+                    fre.append(FreBlock(channels=block_in))
             up = nn.Module()
             up.block = block
             up.attn = attn
+            up.fre = fre
             if i_level != 0:
                 up.upsample = Upsample(block_in, resamp_with_conv)
                 curr_res = curr_res * 2
@@ -269,6 +344,8 @@ class Branch(nn.Module):
                                         stride=1,
                                         padding=1)
 
+        self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
+        self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
 
 class Model(nn.Module):
@@ -302,7 +379,7 @@ class Model(nn.Module):
 
 
 
-    def forward(self, x, aux, t):
+    def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution
 
 
@@ -318,12 +395,13 @@ class Model(nn.Module):
         x_in = torch.cat((x, aux), dim=1)
 
         # spatial downsampling
-        hs = [self.conv_in(x_in)]
+        hs = [self.spatial.conv_in(x_in)]
         for i_level in range(self.num_resolutions):
             for i_block in range(self.num_res_blocks):
                 h = self.spatial.down[i_level].block[i_block](hs[-1], temb)
                 if len(self.spatial.down[i_level].attn) > 0:
                     h = self.spatial.down[i_level].attn[i_block](h)
+                    h = self.spatial.down[i_level].fre[i_block](h, k)
                 hs.append(h)
 
             if i_level != self.num_resolutions-1:
@@ -334,6 +412,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_1(h, temb)
         h = self.spatial.mid.attn_1(h)
         h = self.spatial.mid.block_2(h, temb)
+        h = self.spatial.mid_fre(h, k)
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
@@ -342,6 +421,8 @@ class Model(nn.Module):
                     torch.cat([h, hs.pop()], dim=1), temb)
                 if len(self.spatial.up[i_level].attn) > 0:
                     h = self.spatial.up[i_level].attn[i_block](h)
+                    h = self.spatial.up[i_level].fre[i_block](h, k)
+
             if i_level != 0:
                 h = self.spatial.up[i_level].upsample(h)
 
@@ -350,4 +431,4 @@ class Model(nn.Module):
         h = nonlinearity(h)
         h = self.spatial.conv_out(h)
 
-        return h + x
+        return h # + x

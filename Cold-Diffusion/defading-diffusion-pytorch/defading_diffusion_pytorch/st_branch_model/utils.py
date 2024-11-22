@@ -204,7 +204,7 @@ class AMPLoss(nn.Module):
 
     def forward(self, x, y):
         x = torch.fft.rfft2(x, norm='backward')
-        x_mag =  torch.abs(x)
+        x_mag = torch.abs(x)
         y = torch.fft.rfft2(y, norm='backward')
         y_mag = torch.abs(y)
 
