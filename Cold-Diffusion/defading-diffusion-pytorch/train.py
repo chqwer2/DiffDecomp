@@ -69,7 +69,7 @@ parser.add_argument('--train_bs', default=24, type=int)
 parser.add_argument('--diffusion_type', default='twobranch_fade', type=str)
 parser.add_argument('--debug', action="store_true")
 parser.add_argument('--image_size', default=128, type=int)
-
+parser.add_argument('--loss_type', default='l1', type=str)
 
 args = parser.parse_args()
 print(args)
@@ -156,7 +156,7 @@ diffusion = GaussianDiffusion(
     channels=image_channels,
     device_of_kernel='cuda',
     timesteps=args.time_steps,
-    loss_type='l1',
+    loss_type=args.loss_type,  #$'l1',
     kernel_std=args.kernel_std,
     fade_routine=args.fade_routine,
     sampling_routine=args.sampling_routine,
