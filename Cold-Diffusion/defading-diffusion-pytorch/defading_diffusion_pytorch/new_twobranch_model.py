@@ -378,7 +378,8 @@ class Model(nn.Module):
         self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
-
+        self.use_fre = True
+        self.use_after_fre = False
 
     def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution
@@ -390,9 +391,6 @@ class Model(nn.Module):
         temb = nonlinearity(temb)
         temb = self.temb.dense[1](temb)
 
-        # print(t)
-        # print(temb)
-
         x_in = torch.cat((x, aux), dim=1)
 
         # spatial downsampling
@@ -401,8 +399,12 @@ class Model(nn.Module):
             for i_block in range(self.num_res_blocks):
                 h = self.spatial.down[i_level].block[i_block](hs[-1], temb)
                 if len(self.spatial.down[i_level].attn) > 0:
+                    if self.use_fre:
+                        h = self.spatial.down[i_level].fre[i_block](h, k)
                     h = self.spatial.down[i_level].attn[i_block](h)
-                    h = self.spatial.down[i_level].fre[i_block](h, k)
+                    if self.use_after_fre:
+                        h = self.spatial.down[i_level].fre[i_block](h, k)
+
                 hs.append(h)
 
             if i_level != self.num_resolutions-1:
@@ -413,7 +415,8 @@ class Model(nn.Module):
         h = self.spatial.mid.block_1(h, temb)
         h = self.spatial.mid.attn_1(h)
         h = self.spatial.mid.block_2(h, temb)
-        h = self.spatial.mid_fre(h, k)
+        if self.use_fre or self.use_after_fre:
+            h = self.spatial.mid_fre(h, k)
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
@@ -421,8 +424,11 @@ class Model(nn.Module):
                 h = self.spatial.up[i_level].block[i_block](
                     torch.cat([h, hs.pop()], dim=1), temb)
                 if len(self.spatial.up[i_level].attn) > 0:
+                    if self.use_fre:
+                        h = self.spatial.up[i_level].fre[i_block](h, k)
                     h = self.spatial.up[i_level].attn[i_block](h)
-                    h = self.spatial.up[i_level].fre[i_block](h, k)
+                    if self.use_after_fre:
+                        h = self.spatial.up[i_level].fre[i_block](h, k)
 
             if i_level != 0:
                 h = self.spatial.up[i_level].upsample(h)

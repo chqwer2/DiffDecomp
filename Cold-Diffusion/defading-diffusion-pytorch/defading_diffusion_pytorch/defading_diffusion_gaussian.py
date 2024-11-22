@@ -148,8 +148,9 @@ class GaussianDiffusion(nn.Module):
         self.lpips = LPIPS().eval().cuda()  # .to(self.device, non_blocking=True)
 
         self.use_fre_loss = True
-        self.update_kernel = True
+        self.update_kernel = False
         self.use_lpips = True
+
 
 
     def get_new_kspace(self):

@@ -96,7 +96,7 @@ if model_name == "unet":
     #     with_time_emb=not (args.remove_time_embed),
     #     residual=args.residual
     # ).cuda()
-    model = Model(resolution=128,
+    model = Model(resolution=args.image_size,
                   in_channels=1,
                   out_ch=1,
                   ch=128,
@@ -107,7 +107,7 @@ if model_name == "unet":
 
 elif model_name == "twounet":
 
-    model = TwoBranchNewModel(resolution=128,
+    model = TwoBranchNewModel(resolution=args.image_size,
                   in_channels=1,
                   out_ch=1,
                   ch=128,
