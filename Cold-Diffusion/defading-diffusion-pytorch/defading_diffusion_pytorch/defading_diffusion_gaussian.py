@@ -593,7 +593,7 @@ class GaussianDiffusion(nn.Module):
                 loss += lpips_weight * lpips_loss
 
 
-            if self.use_fre_loss and False:
+            if self.use_fre_loss:
                 fft_weight = 0.1
                 amp = self.amploss(x_recon, x_start)
                 pha = self.phaloss(x_recon, x_start)
