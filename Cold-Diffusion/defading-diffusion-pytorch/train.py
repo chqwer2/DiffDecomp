@@ -180,6 +180,7 @@ else:
 
     save_and_sample_every = 100
 
+print("SAVE FOLDER: ", args.save_folder)
 
 trainer = Trainer(
     diffusion,

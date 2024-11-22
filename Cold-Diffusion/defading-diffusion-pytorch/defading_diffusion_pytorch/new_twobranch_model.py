@@ -436,7 +436,7 @@ class Model(nn.Module):
                         h = self.spatial.up[i_level].fre[i_block](h, k)
 
                 # TODO residual
-                h += hs.pop()
+                # h += hs.pop()
 
             if i_level != 0:
                 h = self.spatial.up[i_level].upsample(h)

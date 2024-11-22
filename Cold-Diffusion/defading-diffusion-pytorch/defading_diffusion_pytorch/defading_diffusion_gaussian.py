@@ -328,18 +328,19 @@ class GaussianDiffusion(nn.Module):
                             kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
 
                             recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
-                            recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
+                            recon_sample_sub_1_fre = recon_sample_sub_1_fre # * kt_sub_1
 
                             kt = self.get_kspace_kernels(t - 1, rand_kernels)
 
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
-                            recon_sample_fre = recon_sample_fre * kt
+                            recon_sample_fre = recon_sample_fre # * kt
 
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
-                        k_mask = (kt_sub_1 - kt).cuda()
-
-                        faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_mask) * (recon_sample_sub_1_fre - recon_sample_fre)
+                        # k_mask = (kt_sub_1 - kt).cuda()
+                        # (1 - kt) * 
+                        faded_recon_sample_fre = faded_recon_sample_fre + \
+                                                 (recon_sample_sub_1_fre - recon_sample_fre)
 
                         # faded_recon_sample_fre = faded_recon_sample_fre - recon_sample_fre + recon_sample_sub_1_fre
 
