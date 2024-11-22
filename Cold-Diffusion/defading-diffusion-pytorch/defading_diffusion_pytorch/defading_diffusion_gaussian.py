@@ -572,6 +572,7 @@ class GaussianDiffusion(nn.Module):
             raise NotImplementedError()
         return loss
 
+
     def p_losses(self, x_start, aux, t):
         self.debug_print = False
         x_mix, k = self.q_sample(x_start=x_start, t=t)
@@ -592,17 +593,17 @@ class GaussianDiffusion(nn.Module):
                 lpips_weight = 0.1
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
-
-
-            if self.use_fre_loss and False:
-                fft_weight = 0.1
-                amp = self.amploss(x_recon, x_start)
-                pha = self.phaloss(x_recon, x_start)
-
-                loss += fft_weight * (amp + pha)
-                # NAN
-                if torch.isnan(loss):
-                    print("NAN = amp:", amp, "pha:", pha)
+            #
+            #
+            # if self.use_fre_loss and False:
+            #     fft_weight = 0.1
+            #     amp = self.amploss(x_recon, x_start)
+            #     pha = self.phaloss(x_recon, x_start)
+            #
+            #     loss += fft_weight * (amp + pha)
+            #     # NAN
+            #     if torch.isnan(loss):
+            #         print("NAN = amp:", amp, "pha:", pha)
 
 
         elif self.backbone == 'twobranch':
