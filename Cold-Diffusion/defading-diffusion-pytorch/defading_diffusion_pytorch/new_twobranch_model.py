@@ -261,7 +261,7 @@ class Branch(nn.Module):
         self.in_channels = in_channels
 
         # downsampling
-        self.conv_in = torch.nn.Conv2d(in_channels * 3,
+        self.conv_in = torch.nn.Conv2d(in_channels * 2,
                                        self.ch,
                                        kernel_size=3,
                                        stride=1,
@@ -386,6 +386,7 @@ class Model(nn.Module):
     def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution
 
+        # k = k.to(x.device)
 
         # timestep embedding
         temb = get_timestep_embedding(t, self.ch)
@@ -393,7 +394,7 @@ class Model(nn.Module):
         temb = nonlinearity(temb)
         temb = self.temb.dense[1](temb)
 
-        x_in = torch.cat((x, aux, k), dim=1)
+        x_in = torch.cat((x, aux), dim=1)
 
         # spatial downsampling
         hs = [self.spatial.conv_in(x_in)]

@@ -18,7 +18,7 @@ dataset=Brain
 domain=BraTS-GLI-T1C     # T1C
 aux_modality=T2F         # T1C, T1N, T2W, T2F
 num_channels=1
-train_bs=24   # 4 | 32
+
 
 diffusion_type=twobranch_fade    # unet | twobranch
 diffusion_type=twobranch_kspace
@@ -31,11 +31,13 @@ diffusion_type=twounet_kspace
 
 time_step=50
 image_size=64
-sampling_routine=default  # x0_step_down  # default | x0_step_down  | x0_step_down_fre
+sampling_routine=x0_step_down  # default | x0_step_down  | x0_step_down_fre
 loss_type=l2  #   1     # l2 | l1 | l2_l1
-tag=l1_default     # x0_step_down | x0_step_down_fre
-deviceid=5
+tag=l2_x0_step_down_fre_loss     # x0_step_down | x0_step_down_fre
+deviceid=4
 # fre_before_attn + l1
+train_bs=12   # 4 | 32 | 24
+
 
 save_folder=./results/$diffusion_type_$sampling_routine
 
@@ -49,7 +51,7 @@ python  train.py --time_steps $time_step --train_steps 700000 \
             --remove_time_embed --residual --image_size $image_size \
             --diffusion_type $diffusion_type  --train_bs $train_bs \
             --num_channels $num_channels --deviceid $deviceid \
-            --kernel_std 0.15  --discrete   --loss_type $loss_type  # --debug
+            --kernel_std 0.15  --discrete   --loss_type $loss_type  #--debug
 
 
 

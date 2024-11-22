@@ -150,6 +150,8 @@ class GaussianDiffusion(nn.Module):
         self.use_fre_loss = True
         self.update_kernel = False
         self.use_lpips = True
+        self.clamp_every_sample = True
+
 
     # if _MRIDOWN == "4X":
     #     mask_type_str, center_fraction, MRIDOWN = "random", 0.1, 4
@@ -161,6 +163,16 @@ class GaussianDiffusion(nn.Module):
     def get_new_kspace(self):
         self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
         self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
+
+
+
+
+    def get_kspace_kernels(self, index, rand_kernels):
+        if rand_kernels is not None:
+            k = torch.stack([rand_kernels[:, index]], 1)
+        else:
+            k = torch.stack([self.kspace_kernels[index]], 1)
+        return k
 
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
@@ -267,12 +279,9 @@ class GaussianDiffusion(nn.Module):
 
                 if self.sampling_routine == 'default':
                     with torch.no_grad():
-                        if rand_kernels is not None:
-                            k = torch.stack([rand_kernels[:, t-1]], 1)
-                        else:
-                            k = torch.stack([self.kspace_kernels[t-1]], 1)
-
-                        recon_sample = apply_ksu_kernel(recon_sample, k)
+                        if t >=1:
+                            k = self.get_kspace_kernels(t - 1, rand_kernels)
+                            recon_sample = apply_ksu_kernel(recon_sample, k)
 
                     faded_recon_sample = recon_sample
 
@@ -281,10 +290,7 @@ class GaussianDiffusion(nn.Module):
                     if t <= 1:
                         if t == 1:
                             recon_sample_sub_1 = recon_sample
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, i]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[i]], 1)
+                            k = self.get_kspace_kernels(0, rand_kernels)
 
                             recon_sample = apply_ksu_kernel(recon_sample, k)
                             faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
@@ -293,32 +299,22 @@ class GaussianDiffusion(nn.Module):
                             faded_recon_sample = recon_sample
                     else:
                         with torch.no_grad():
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, t - 2]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[t - 2]], 1)
-
+                            k = self.get_kspace_kernels(t - 2, rand_kernels)
                             recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k)
 
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, t -1 ]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[t - 1]], 1)
-
+                            k = self.get_kspace_kernels(t - 1, rand_kernels)
                             recon_sample = apply_ksu_kernel(recon_sample, k)
 
                         faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
-
+                        if self.clamp_every_sample:
+                            faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
                 elif self.sampling_routine == 'x0_step_down_fre':
 
                     if t <= 1:
                         if t == 1:
                             recon_sample_sub_1 = recon_sample
-                            if rand_kernels is not None:
-                                k = torch.stack([rand_kernels[:, i]], 1)
-                            else:
-                                k = torch.stack([self.kspace_kernels[i]], 1)
+                            k = self.get_kspace_kernels(0, rand_kernels)
 
                             recon_sample = apply_ksu_kernel(recon_sample, k)
                             faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
@@ -326,25 +322,15 @@ class GaussianDiffusion(nn.Module):
                         else:
                             faded_recon_sample = recon_sample
                     else:
-                        if rand_kernels is not None:
-                            k_full = torch.stack([rand_kernels[:, -1]], 1).cuda()
-                        else:
-                            k_full = torch.stack([self.kspace_kernels[-1]], 1).cuda()
+                        k_full = self.get_kspace_kernels(- 1, rand_kernels)
 
                         with torch.no_grad():
-                            if rand_kernels is not None:
-                                # print("DEBUG  t-2:", t-2)
-                                kt_sub_1 = torch.stack([rand_kernels[:, t - 2]], 1)
-                            else:
-                                kt_sub_1 = torch.stack([self.kspace_kernels[t - 2]], 1)
+                            kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
 
                             recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                             recon_sample_sub_1_fre = recon_sample_sub_1_fre * kt_sub_1
 
-                            if rand_kernels is not None:
-                                kt = torch.stack([rand_kernels[:, t-1 ]], 1)
-                            else:
-                                kt = torch.stack([self.kspace_kernels[t-1]], 1)
+                            kt = self.get_kspace_kernels(t - 1, rand_kernels)
 
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
                             recon_sample_fre = recon_sample_fre * kt
@@ -360,7 +346,8 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
                         # Strange black stripe
-
+                    if self.clamp_every_sample:
+                        faded_recon_sample =faded_recon_sample.clamp(-1, 1)
                     # Add discrete
                     # if self.discrete:
                     #     faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -603,9 +590,9 @@ class GaussianDiffusion(nn.Module):
                 lpips_weight = 0.1
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
-            #
-            #
-            # if self.use_fre_loss and False:
+
+
+            # if self.use_fre_loss:
             #     fft_weight = 0.1
             #     amp = self.amploss(x_recon, x_start)
             #     pha = self.phaloss(x_recon, x_start)
