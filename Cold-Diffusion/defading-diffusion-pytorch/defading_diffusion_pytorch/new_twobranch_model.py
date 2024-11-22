@@ -261,7 +261,7 @@ class Branch(nn.Module):
         self.in_channels = in_channels
 
         # downsampling
-        self.conv_in = torch.nn.Conv2d(in_channels * 2,
+        self.conv_in = torch.nn.Conv2d(in_channels * 3,
                                        self.ch,
                                        kernel_size=3,
                                        stride=1,
@@ -393,7 +393,7 @@ class Model(nn.Module):
         temb = nonlinearity(temb)
         temb = self.temb.dense[1](temb)
 
-        x_in = torch.cat((x, aux), dim=1)
+        x_in = torch.cat((x, aux, k), dim=1)
 
         # spatial downsampling
         hs = [self.spatial.conv_in(x_in)]
@@ -418,7 +418,7 @@ class Model(nn.Module):
         h = self.spatial.mid.attn_1(h)
         h = self.spatial.mid.block_2(h, temb)
         # if self.use_front_fre or self.use_after_fre:
-        h = self.spatial.mid_fre(h, k)
+        # h = self.spatial.mid_fre(h, k)
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):

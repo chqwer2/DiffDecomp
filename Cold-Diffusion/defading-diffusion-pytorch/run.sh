@@ -28,8 +28,6 @@ diffusion_type=unet_kspace
 diffusion_type=twounet_kspace
 
 # diffusion_type=unet_fade    # unet | twobranch
-save_folder=./results/$diffusion_type
-
 
 time_step=50
 image_size=64
@@ -38,6 +36,9 @@ loss_type=l2  #   1     # l2 | l1 | l2_l1
 tag=l1_default     # x0_step_down | x0_step_down_fre
 deviceid=5
 # fre_before_attn + l1
+
+save_folder=./results/$diffusion_type_$sampling_routine
+
 
 
 python  train.py --time_steps $time_step --train_steps 700000 \
