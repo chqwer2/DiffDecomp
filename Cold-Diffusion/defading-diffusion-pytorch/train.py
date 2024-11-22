@@ -174,9 +174,9 @@ else:
     args.save_folder = args.save_folder + f"_{args.tag}"
 
     if os.path.exists(args.save_folder):
-        name = args.save_folder.split(".")[-1]
+        name = args.save_folder.split("/")[-1]
         number = os.listdir(args.save_folder.rstrip(name)).__len__()
-        args.save_folder = args.save_folder + f"_{number}"
+        args.save_folder = os.path.join(args.save_folder, f"{number}_" + name)
 
     save_and_sample_every = 100
 
