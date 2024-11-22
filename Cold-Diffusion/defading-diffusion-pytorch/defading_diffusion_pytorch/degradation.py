@@ -48,6 +48,8 @@ except:
 # Gaussain 2D Mask Support
 # from utils.utils_kspace_undersampling import utils_undersampling_pattern, utils_radial_spiral_undersampling
 
+
+# cartesian_regular
 def get_mask_func(ksu_mask_type, af, cf):
     if ksu_mask_type == 'cartesian_regular':
         return EquispacedMaskFractionFunc(center_fractions=[cf], accelerations=[af])
@@ -69,6 +71,12 @@ def get_mask_func(ksu_mask_type, af, cf):
         raise NotImplementedError
 
 
+
+
+
+
+# af (Acceleration Factor), cf (Center Fraction)
+# pe (Phase Encoding), fe (Frequency Encoding)
 def get_ksu_mask(ksu_mask_type, af, cf, pe, fe, seed=0):
     mask_func = get_mask_func(ksu_mask_type, af, cf)
 
@@ -111,7 +119,7 @@ def get_ksu_kernel(timesteps, image_size,
         # Start from 0.01
 
         for sr in sr_list:
-            af = 1 / sr # * accelerated_factor           # acceleration factor
+            af = 1 / sr  # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
             masks.append(get_ksu_mask(ksu_mask_type, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
@@ -171,6 +179,8 @@ def apply_tofre(x_start, mask, pixel_range='-1_1'):
     mask = mask.to(fft.device)
     return fft, mask
 
+
+
 def apply_to_spatial(fft, pixel_range='-1_1'):
 
     x_ksu = ifft2(ifftshift(fft))
@@ -189,8 +199,6 @@ def apply_to_spatial(fft, pixel_range='-1_1'):
         raise ValueError(f"Unknown pixel range {pixel_range}.")
 
     return x_ksu
-
-
 
 
 

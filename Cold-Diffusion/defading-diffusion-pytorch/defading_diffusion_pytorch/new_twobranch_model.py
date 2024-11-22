@@ -378,8 +378,8 @@ class Model(nn.Module):
         self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
-        self.use_fre = True
-        self.use_after_fre = False
+        self.use_fre = False
+        self.use_after_fre = True
 
     def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution

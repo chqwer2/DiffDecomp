@@ -151,7 +151,12 @@ class GaussianDiffusion(nn.Module):
         self.update_kernel = False
         self.use_lpips = True
 
-
+    # if _MRIDOWN == "4X":
+    #     mask_type_str, center_fraction, MRIDOWN = "random", 0.1, 4
+    # elif _MRIDOWN == "8X":
+    #     mask_type_str, center_fraction, MRIDOWN = "equispaced", 0.04, 8
+    #
+    # ff = create_mask_for_mask_type(mask_type_str, [center_fraction], [MRIDOWN]) ## 0.2 fo
 
     def get_new_kspace(self):
         self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
@@ -595,7 +600,9 @@ class GaussianDiffusion(nn.Module):
                 pha = self.phaloss(x_recon, x_start)
 
                 loss += fft_weight * (amp + pha)
-
+                # NAN
+                if torch.isnan(loss):
+                    print("NAN = amp:", amp, "pha:", pha)
 
 
         elif self.backbone == 'twobranch':

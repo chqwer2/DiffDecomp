@@ -243,8 +243,22 @@ class RandomMaskFunc(MaskFunc):
             num_cols - num_low_frequencies
         )
 
+        mask = self.rng.uniform(size=num_cols) < prob
+        return torch.from_numpy(mask.astype(np.float32))
+
         # return self.rng.uniform(size=num_cols) < prob
-        return torch.rand(num_cols) < prob
+        # return torch.rand(num_cols) < prob
+
+
+        # mask = self.rng.uniform(size=num_cols) < prob
+        # pad = (num_cols - num_low_freqs + 1) // 2
+        # mask[pad: pad + num_low_freqs] = True
+        #
+        # # reshape the mask
+        # mask_shape = [1 for _ in shape]
+        # mask_shape[-2] = num_cols
+        # mask = torch.from_numpy(mask.reshape(*mask_shape).astype(np.float32))
+
 
 
 
