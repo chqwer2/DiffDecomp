@@ -338,7 +338,7 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
                         # k_mask = (kt_sub_1 - kt).cuda()
-                        # (1 - kt) * 
+                        # (1 - kt) *
                         faded_recon_sample_fre = faded_recon_sample_fre + \
                                                  (recon_sample_sub_1_fre - recon_sample_fre)
 
@@ -593,15 +593,15 @@ class GaussianDiffusion(nn.Module):
                 loss += lpips_weight * lpips_loss
 
 
-            # if self.use_fre_loss:
-            #     fft_weight = 0.1
-            #     amp = self.amploss(x_recon, x_start)
-            #     pha = self.phaloss(x_recon, x_start)
-            #
-            #     loss += fft_weight * (amp + pha)
-            #     # NAN
-            #     if torch.isnan(loss):
-            #         print("NAN = amp:", amp, "pha:", pha)
+            if self.use_fre_loss:
+                fft_weight = 0.1
+                amp = self.amploss(x_recon, x_start)
+                pha = self.phaloss(x_recon, x_start)
+
+                loss += fft_weight * (amp + pha)
+                # NAN
+                if torch.isnan(loss):
+                    print("NAN = amp:", amp, "pha:", pha)
 
 
         elif self.backbone == 'twobranch':

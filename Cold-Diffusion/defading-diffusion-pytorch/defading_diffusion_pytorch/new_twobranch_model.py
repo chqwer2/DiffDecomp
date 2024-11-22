@@ -421,7 +421,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_2(h, temb)
 
         # if self.use_front_fre or self.use_after_fre:
-        # h = self.spatial.mid_fre(h, k)
+        h = self.spatial.mid_fre(h, k) + h
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
