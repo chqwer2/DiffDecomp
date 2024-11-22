@@ -37,7 +37,8 @@ loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
 
 
 tag=l2_default     # x0_step_down | x0_step_down_fre
-deviceid=0
+
+devicei
 # fre_before_attn + l1
 train_bs=12   # 4 | 32 | 24
 
@@ -62,6 +63,6 @@ python  train.py --time_steps $time_step --train_steps 700000 \
 
 
 
-# --fade_routine Random_Incremental
+
 
 

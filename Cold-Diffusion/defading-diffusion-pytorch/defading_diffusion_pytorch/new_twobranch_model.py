@@ -405,6 +405,7 @@ class Model(nn.Module):
                     if self.use_front_fre:
                         h = self.spatial.down[i_level].fre[i_block](h, k)
                     h = self.spatial.down[i_level].attn[i_block](h)
+
                     if self.use_after_fre:
                         h = self.spatial.down[i_level].fre[i_block](h, k)
 
@@ -418,6 +419,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_1(h, temb)
         h = self.spatial.mid.attn_1(h)
         h = self.spatial.mid.block_2(h, temb)
+
         # if self.use_front_fre or self.use_after_fre:
         # h = self.spatial.mid_fre(h, k)
 
@@ -432,6 +434,9 @@ class Model(nn.Module):
                     h = self.spatial.up[i_level].attn[i_block](h)
                     if self.use_after_fre:
                         h = self.spatial.up[i_level].fre[i_block](h, k)
+
+                # TODO residual
+                h += hs.pop()
 
             if i_level != 0:
                 h = self.spatial.up[i_level].upsample(h)
