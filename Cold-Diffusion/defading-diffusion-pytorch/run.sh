@@ -2,6 +2,7 @@
 
 mamba activate diffmri
 cd /home/hao/repo/DiffDecomp/Cold-Diffusion/defading-diffusion-pytorch
+cd /home/cbtil3/hao/repo/DiffDecomp/Cold-Diffusion/defading-diffusion-pytorch
 # cd STEP1.AutoencoderModel2D
 #git stash
 git pull
@@ -9,7 +10,7 @@ git pull
 
 mamba activate diffmri
 cd /home/hao/repo/DiffDecomp/Cold-Diffusion/defading-diffusion-pytorch
-
+cd /home/cbtil3/hao/repo/DiffDecomp/Cold-Diffusion/defading-diffusion-pytorch
 
 datapath=/home/hao/data/medical/Brain/
 # /gamedrive/Datasets/medical/Brain/
@@ -31,15 +32,19 @@ diffusion_type=twounet_kspace
 
 time_step=50
 image_size=64
-sampling_routine=x0_step_down  # default | x0_step_down  | x0_step_down_fre
-loss_type=l2  #   1     # l2 | l1 | l2_l1
-tag=l2_x0_step_down_fre_loss     # x0_step_down | x0_step_down_fre
-deviceid=4
+sampling_routine=default  # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
+loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
+tag=l2_default     # x0_step_down | x0_step_down_fre
+deviceid=0
 # fre_before_attn + l1
 train_bs=12   # 4 | 32 | 24
 
 
 save_folder=./results/$diffusion_type_$sampling_routine
+
+
+datapath=/home/hao/data/medical/Brain/
+datapath=/gamedrive/Datasets/medical/Brain/
 
 
 

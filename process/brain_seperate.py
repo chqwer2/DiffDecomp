@@ -1,7 +1,7 @@
 from glob import glob
 import shutil, os
 
-root = "/data"
+root = "/gamedrive/Datasets/medical/Brain/brats"
 # save to "root/Brain
 
 TASK = "GLI"
@@ -19,7 +19,7 @@ for file in segfiles:
         savefilename = os.path.basename(file).replace("-seg", "")
 
 
-        savepath = os.path.join(root, f"Brain/BraTS-{TASK}-{modality.upper()}")
+        savepath = os.path.join(root, f"Processed/BraTS-{TASK}-{modality.upper()}")
         os.makedirs(savepath, exist_ok=True)
 
         imgpath = os.path.join(savepath, "img")
