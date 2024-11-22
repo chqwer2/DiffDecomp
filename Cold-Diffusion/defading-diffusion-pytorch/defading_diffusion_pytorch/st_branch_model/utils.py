@@ -195,31 +195,48 @@ def vanilla_d_loss(logits_real, logits_fake):
     return d_loss
 
 
-
-
 class AMPLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, epsilon=1e-8, norm='ortho'):
         super(AMPLoss, self).__init__()
         self.cri = nn.L1Loss()
+        self.epsilon = epsilon  # To prevent division by zero
+        self.norm = norm  # Normalization for FFT
 
     def forward(self, x, y):
-        x = torch.fft.rfft2(x, norm='backward')
-        x_mag = torch.abs(x)
-        y = torch.fft.rfft2(y, norm='backward')
-        y_mag = torch.abs(y)
+        # Validate inputs
+        if not torch.isfinite(x).all() or not torch.isfinite(y).all():
+            raise ValueError("Input contains NaN or Inf values")
 
-        return self.cri(x_mag,y_mag)
+        # Perform FFT and compute magnitudes
+        x_fft = torch.fft.rfft2(x, norm=self.norm)
+        x_mag = torch.clamp(torch.abs(x_fft), min=self.epsilon)  # Clamp to avoid zeros
+
+        y_fft = torch.fft.rfft2(y, norm=self.norm)
+        y_mag = torch.clamp(torch.abs(y_fft), min=self.epsilon)  # Clamp to avoid zeros
+
+        # Compute L1 loss between magnitudes
+        return self.cri(x_mag, y_mag)
 
 
 class PhaLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, epsilon=1e-8, norm='ortho'):
         super(PhaLoss, self).__init__()
         self.cri = nn.L1Loss()
+        self.epsilon = epsilon  # To prevent undefined phase for zero magnitudes
+        self.norm = norm  # Normalization for FFT
 
     def forward(self, x, y):
-        x = torch.fft.rfft2(x, norm='backward')
-        x_mag = torch.angle(x)
-        y = torch.fft.rfft2(y, norm='backward')
-        y_mag = torch.angle(y)
+        # Validate inputs
+        if not torch.isfinite(x).all() or not torch.isfinite(y).all():
+            raise ValueError("Input contains NaN or Inf values")
 
-        return self.cri(x_mag, y_mag)
+        # Perform FFT
+        x_fft = torch.fft.rfft2(x, norm=self.norm)
+        y_fft = torch.fft.rfft2(y, norm=self.norm)
+
+        # Compute phase
+        x_phase = torch.angle(x_fft)
+        y_phase = torch.angle(y_fft)
+
+        # Compute L1 loss between phases
+        return self.cri(x_phase, y_phase)

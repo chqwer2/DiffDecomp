@@ -338,16 +338,16 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
-                        # k_mask = k_full
 
-                        # faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_mask) * (recon_sample_sub_1_fre - recon_sample_fre)
-                        faded_recon_sample_fre = faded_recon_sample_fre - recon_sample_fre + \
-                                    recon_sample_sub_1_fre
+                        faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_mask) * (recon_sample_sub_1_fre - recon_sample_fre)
+
+                        # faded_recon_sample_fre = faded_recon_sample_fre - recon_sample_fre + recon_sample_sub_1_fre
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
                         # Strange black stripe
                     if self.clamp_every_sample:
                         faded_recon_sample =faded_recon_sample.clamp(-1, 1)
+
                     # Add discrete
                     # if self.discrete:
                     #     faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -621,12 +621,12 @@ class GaussianDiffusion(nn.Module):
 
                 # print("lpips_loss:", lpips_loss)
 
-            if self.use_fre_loss:
-                fft_weight = 0.01
-                amp = self.amploss(x_recon_fre, x_start)
-                pha = self.phaloss(x_recon_fre, x_start)
-
-                loss += fft_weight * (amp + pha)
+            # if self.use_fre_loss:
+            #     fft_weight = 0.01
+            #     amp = self.amploss(x_recon_fre, x_start)
+            #     pha = self.phaloss(x_recon_fre, x_start)
+            #
+            #     loss += fft_weight * (amp + pha)
 
         return loss
 
