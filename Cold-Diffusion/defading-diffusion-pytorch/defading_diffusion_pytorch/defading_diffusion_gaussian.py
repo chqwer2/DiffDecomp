@@ -307,20 +307,10 @@ class GaussianDiffusion(nn.Module):
 
                             recon_sample = apply_ksu_kernel(recon_sample, k)
 
-                    # for i in range(t):
-                    #     with torch.no_grad():
-                    #         recon_sample_sub_1 = recon_sample    # D(x_0, s-1)
-                    #         if rand_kernels is not None:
-                    #             k = torch.stack([rand_kernels[:, i]], 1)
-                    #         else:
-                    #             k = torch.stack([self.kspace_kernels[i]], 1)
-                    #
-                    #         recon_sample = apply_ksu_kernel(recon_sample, k)
-                    #
                         faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
                 elif self.sampling_routine == 'x0_step_down_fre':
-                    recon_x0_hat = recon_sample
+
                     if t <= 1:
                         if t == 1:
                             recon_sample_sub_1 = recon_sample
@@ -335,6 +325,11 @@ class GaussianDiffusion(nn.Module):
                         else:
                             faded_recon_sample = recon_sample
                     else:
+                        if rand_kernels is not None:
+                            k_full = torch.stack([rand_kernels[:, -1]], 1)
+                        else:
+                            k_full = torch.stack([self.kspace_kernels[-1]], 1)
+
                         with torch.no_grad():
                             if rand_kernels is not None:
                                 print("DEBUG  t-2:", t-2)
@@ -353,10 +348,10 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
                             recon_sample_fre = recon_sample_fre * kt
 
-                        faded_recon_sample_fre, _ = apply_tofre(recon_sample, kt)
+                        faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
-                        # print("Sum of (kt_sub_1 - kt) = ", torch.sum(kt), torch.sum(kt_sub_1))
-                        faded_recon_sample_fre = faded_recon_sample_fre + (kt_sub_1 - kt) * (recon_sample_sub_1_fre - recon_sample_fre)
+
+                        faded_recon_sample_fre = faded_recon_sample_fre + (1 - k_full) * (recon_sample_sub_1_fre - recon_sample_fre)
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
                         # faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
@@ -827,9 +822,9 @@ class Trainer(object):
                 direct_recons = (direct_recons + 1) * 0.5
                 xt = (xt + 1) * 0.5
 
-
-                # all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
-                # direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
+                # Clip
+                all_images = torch.clamp(all_images, 0, 1)
+                direct_recons = torch.clamp(direct_recons, 0, 1)
 
                 # return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 

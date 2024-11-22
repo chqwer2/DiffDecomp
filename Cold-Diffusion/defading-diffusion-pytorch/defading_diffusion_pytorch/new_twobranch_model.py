@@ -378,8 +378,10 @@ class Model(nn.Module):
         self.amploss = AMPLoss()  # .to(self.device, non_blocking=True)
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
-        self.use_front_fre = True
+        self.use_front_fre = False
         self.use_after_fre = False
+        print("=== use front fre", self.use_front_fre)   # NAN
+        print("=== use after fre", self.use_after_fre)   # use_after_fre_ BUG NAN
 
     def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution
@@ -415,8 +417,8 @@ class Model(nn.Module):
         h = self.spatial.mid.block_1(h, temb)
         h = self.spatial.mid.attn_1(h)
         h = self.spatial.mid.block_2(h, temb)
-        if self.use_front_fre or self.use_after_fre:
-            h = self.spatial.mid_fre(h, k)
+        # if self.use_front_fre or self.use_after_fre:
+        h = self.spatial.mid_fre(h, k)
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
