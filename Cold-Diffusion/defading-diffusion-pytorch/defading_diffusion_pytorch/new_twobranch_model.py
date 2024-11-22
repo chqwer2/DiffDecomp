@@ -379,7 +379,7 @@ class Model(nn.Module):
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
         self.use_fre = False
-        self.use_after_fre = True
+        self.use_after_fre = Flase
 
     def forward(self, x, aux, k, t):
         assert x.shape[2] == x.shape[3] == self.resolution

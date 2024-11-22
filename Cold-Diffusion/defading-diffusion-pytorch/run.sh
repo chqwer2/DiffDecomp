@@ -32,10 +32,10 @@ save_folder=./results/$diffusion_type
 
 
 time_step=50
-image_size=64
+image_size=128
 sampling_routine=x0_step_down   # x0_step_down  | x0_step_down_fre
-loss_type=l1         # l2 | l1 | l2_l1
-tag=use_after_fre_l1_noupdate_kernel      # x0_step_down | x0_step_down_fre
+loss_type=l2   1     # l2 | l1 | l2_l1
+tag=use_after_fre_l1     # x0_step_down | x0_step_down_fre
 deviceid=4
 # fre_before_attn + l1
 

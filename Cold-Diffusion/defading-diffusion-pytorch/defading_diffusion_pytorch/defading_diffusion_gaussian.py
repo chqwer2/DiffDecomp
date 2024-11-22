@@ -594,7 +594,7 @@ class GaussianDiffusion(nn.Module):
                 loss += lpips_weight * lpips_loss
 
 
-            if self.use_fre_loss:
+            if self.use_fre_loss and False:
                 fft_weight = 0.1
                 amp = self.amploss(x_recon, x_start)
                 pha = self.phaloss(x_recon, x_start)
@@ -789,8 +789,6 @@ class Trainer(object):
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
 
-
-
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
 
@@ -829,8 +827,8 @@ class Trainer(object):
                 xt = (xt + 1) * 0.5
 
 
-                all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
-                direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
+                # all_images = (all_images - all_images.min()) / (all_images.max() - all_images.min())
+                # direct_recons = (direct_recons - direct_recons.min()) / (direct_recons.max() - direct_recons.min())
 
                 # return_sample = (xt - xt.min()) / (xt.max() - xt.min())
 
