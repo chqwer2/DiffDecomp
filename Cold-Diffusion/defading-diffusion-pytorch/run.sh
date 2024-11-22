@@ -34,8 +34,8 @@ save_folder=./results/$diffusion_type
 time_step=50
 image_size=64
 sampling_routine=x0_step_down   # x0_step_down  | x0_step_down_fre
-loss_type=l2    # l2 | l1 | l2_l1
-tag=fre_loss_l2    # x0_step_down | x0_step_down_fre
+loss_type=l2         # l2 | l1 | l2_l1
+tag=fre_loss_l2      # x0_step_down | x0_step_down_fre
 deviceid=6
 
 

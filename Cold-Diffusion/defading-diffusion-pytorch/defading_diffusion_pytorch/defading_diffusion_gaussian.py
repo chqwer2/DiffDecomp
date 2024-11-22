@@ -580,10 +580,8 @@ class GaussianDiffusion(nn.Module):
         elif self.backbone == 'twounet':
             x_recon = self.restore_fn(x_mix, aux, k, t)
             loss = self.reconstruct_loss(x_start, x_recon)
-            # if np.random.rand() < 0.01:
-            #     print("loss_spatial:", loss_spatial, "loss_freq:", loss_freq)
 
-                # LPIPS
+            # LPIPS
             if self.use_lpips:
                 lpips_weight = 0.1
                 lpips_loss = self.lpips(x_recon, x_start).mean()
