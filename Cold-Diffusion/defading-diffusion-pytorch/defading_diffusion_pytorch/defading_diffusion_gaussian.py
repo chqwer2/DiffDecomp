@@ -340,7 +340,7 @@ class GaussianDiffusion(nn.Module):
                         # k_mask = (kt_sub_1 - kt).cuda()
                         # (1 - kt) *
                         faded_recon_sample_fre = faded_recon_sample_fre + \
-                                                 (recon_sample_sub_1_fre - recon_sample_fre)
+                                    (recon_sample_sub_1_fre - recon_sample_fre) * ( 1 / (t))
 
                         # faded_recon_sample_fre = faded_recon_sample_fre - recon_sample_fre + recon_sample_sub_1_fre
 
@@ -349,15 +349,6 @@ class GaussianDiffusion(nn.Module):
                     if self.clamp_every_sample:
                         faded_recon_sample =faded_recon_sample.clamp(-1, 1)
 
-                    # Add discrete
-                    # if self.discrete:
-                    #     faded_recon_sample = (faded_recon_sample + 1) * 0.5
-                    #     faded_recon_sample = torch.clamp(faded_recon_sample, -1, 1)
-                        # Strange black stripe
-
-                        # faded_recon_sample = (faded_recon_sample * 255)
-                        # faded_recon_sample = faded_recon_sample.int().float() / 255
-                        # faded_recon_sample = faded_recon_sample * 2 - 1
 
             recon_sample = faded_recon_sample
             t -= 1
@@ -593,15 +584,15 @@ class GaussianDiffusion(nn.Module):
                 loss += lpips_weight * lpips_loss
 
 
-            if self.use_fre_loss:
-                fft_weight = 0.1
-                amp = self.amploss(x_recon, x_start)
-                pha = self.phaloss(x_recon, x_start)
-
-                loss += fft_weight * (amp + pha)
-                # NAN
-                if torch.isnan(loss):
-                    print("NAN = amp:", amp, "pha:", pha)
+            # if self.use_fre_loss:  # NAN
+            #     fft_weight = 0.1
+            #     amp = self.amploss(x_recon, x_start)
+            #     pha = self.phaloss(x_recon, x_start)
+            #
+            #     loss += fft_weight * (amp + pha)
+            #     # NAN
+            #     if torch.isnan(loss):
+            #         print("NAN = amp:", amp, "pha:", pha)
 
 
         elif self.backbone == 'twobranch':
