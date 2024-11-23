@@ -158,8 +158,8 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
         fft_magnitude = torch.abs(fft)  # 幅度
         fft_phase = torch.angle(fft)  # 相位
-
-        H, W = fft.shape
+        print("fft shape: ", fft.shape, fft_magnitude.shape, fft_phase.shape)
+        _, _, H, W = fft.shape
         center_x, center_y = H // 2, W // 2
         radius = 30  # 影响的频率范围半径
         high_freq_mask = torch.ones_like(fft_magnitude)
