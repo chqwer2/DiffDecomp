@@ -781,6 +781,9 @@ class Trainer(object):
                 data_dict = next(self.dl)
 
                 img = data_dict['img'].cuda()
+                # Add some Gaussian
+                img = img + torch.randn_like(img) * 0.1
+
                 aux = data_dict['aux'].cuda()
 
                 # loss = self.model(inputs)
