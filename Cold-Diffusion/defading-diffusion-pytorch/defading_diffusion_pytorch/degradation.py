@@ -152,14 +152,32 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
 
     try:
+
         if use_fre_noise:
+            fft = torch.fft.fftshift(fft)  # 将低频分量移到中心
+
             fft_magnitude = torch.abs(fft)  # 幅度
             fft_phase = torch.angle(fft)  # 相位
-            noise_magnitude = torch.randn_like(fft_magnitude) * 0.1 * fft_magnitude.mean()
-            fft_noisy_magnitude = fft_magnitude + noise_magnitude
-            fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)
 
-        fft = fft * mask
+            H, W = fft.shape
+            center_x, center_y = H // 2, W // 2
+            radius = 30  # 影响的频率范围半径
+            high_freq_mask = torch.ones_like(fft_magnitude)
+            for i in range(H):
+                for j in range(W):
+                    if (i - center_x) ** 2 + (j - center_y) ** 2 <= radius ** 2:
+                        high_freq_mask[i, j] = 0.0  # 屏蔽低频部分
+
+
+            noise_magnitude = torch.randn_like(fft_magnitude) * 0.1 * fft_magnitude.mean()
+
+            # fft = fft * mask
+            fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask * (1 - mask)
+
+
+            fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)
+        else:
+            fft = fft * mask
 
     except:
         print("Error in transforming fft:", fft.shape, mask.shape)
