@@ -890,7 +890,7 @@ class Trainer(object):
                 s = all_recons.shape
                 all_recons = all_recons.cpu().reshape(s[1], s[2], s[3], s[4]*self.model.module.num_timesteps)
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
-                                 nrow=6)
+                                 nrow=1)
 
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)
