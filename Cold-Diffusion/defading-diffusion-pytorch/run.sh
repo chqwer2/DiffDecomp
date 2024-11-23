@@ -33,7 +33,7 @@ diffusion_type=twounet_kspace
 
 time_step=50
 image_size=64
-sampling_routine=x0_step_down # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
+sampling_routine=x0_step_down_fre # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
 loss_type=l1   #  l2 1     # l2 | l1 | l2_l1
 
 
