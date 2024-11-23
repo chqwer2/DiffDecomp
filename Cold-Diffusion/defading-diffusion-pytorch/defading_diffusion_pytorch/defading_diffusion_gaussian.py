@@ -151,7 +151,7 @@ class GaussianDiffusion(nn.Module):
         self.update_kernel = False
         self.use_lpips = True
         self.clamp_every_sample = True # Stride
-
+        self.use_fre_noise = True
 
     # if _MRIDOWN == "4X":
     #     mask_type_str, center_fraction, MRIDOWN = "random", 0.1, 4
@@ -163,8 +163,6 @@ class GaussianDiffusion(nn.Module):
     def get_new_kspace(self):
         self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
         self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
-
-
 
 
     def get_kspace_kernels(self, index, rand_kernels):
@@ -532,7 +530,7 @@ class GaussianDiffusion(nn.Module):
                     else:
                         k = torch.stack([self.kspace_kernels[i]], 1)
 
-                    x = apply_ksu_kernel(x, k)
+                    x = apply_ksu_kernel(x, k, self.use_fre_noise)
                 all_fades.append(x)
 
         all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
@@ -789,7 +787,6 @@ class Trainer(object):
 
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
-
                 if torch.isnan(loss).any():
                     print(f"NaN encountered in epoch {self.step}. Reverting model.")
                     self.model.load_state_dict(last_model_state)  # Revert model

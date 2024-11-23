@@ -147,14 +147,23 @@ def get_ksu_kernel(timesteps, image_size,
     return masks[1:]
 
 
-def apply_ksu_kernel(x_start, mask, pixel_range='-1_1'):
+def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
     fft, mask = apply_tofre(x_start, mask, pixel_range)
 
+
     try:
+        if use_fre_noise:
+            fft_magnitude = torch.abs(fft)  # 幅度
+            fft_phase = torch.angle(fft)  # 相位
+            noise_magnitude = torch.randn_like(fft_magnitude) * 0.1 * fft_magnitude.mean()
+            fft_noisy_magnitude = fft_magnitude + noise_magnitude
+            fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)
+
         fft = fft * mask
+
     except:
         print("Error in transforming fft:", fft.shape, mask.shape)
-        fft = fft * mask
+
 
     x_ksu = apply_to_spatial(fft, pixel_range)
 
