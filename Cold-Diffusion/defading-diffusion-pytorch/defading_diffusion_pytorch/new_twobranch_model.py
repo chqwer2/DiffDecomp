@@ -375,7 +375,7 @@ class Model(nn.Module):
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
         self.use_front_fre = False
-        self.use_after_fre = False
+        self.use_after_fre = True
         print("=== use front fre", self.use_front_fre)   # NAN
         print("=== use after fre", self.use_after_fre)   # use_after_fre_ BUG NAN
 
@@ -403,7 +403,7 @@ class Model(nn.Module):
                     h = self.spatial.down[i_level].attn[i_block](h)
 
                     if self.use_after_fre:
-                        h = self.spatial.down[i_level].fre[i_block](h, k)
+                        h = self.spatial.down[i_level].fre[i_block](h, k) + h
 
                 hs.append(h)
 
@@ -417,7 +417,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_2(h, temb)
 
         # if self.use_front_fre or self.use_after_fre:
-        # h = self.spatial.mid_fre(h, k) + h  # NAN??
+        h = self.spatial.mid_fre(h, k) + h  # NAN??
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
@@ -429,7 +429,7 @@ class Model(nn.Module):
                         h = self.spatial.up[i_level].fre[i_block](h, k)
                     h = self.spatial.up[i_level].attn[i_block](h)
                     if self.use_after_fre:
-                        h = self.spatial.up[i_level].fre[i_block](h, k)
+                        h = self.spatial.up[i_level].fre[i_block](h, k) + h
 
                 # TODO residual
                 # h += hs.pop()
