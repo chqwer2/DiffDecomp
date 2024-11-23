@@ -288,6 +288,7 @@ class GaussianDiffusion(nn.Module):
 
 
                 elif self.sampling_routine == 'x0_step_down':
+                    all_recons.append(recon_sample)
                     if t <= 1:
                         if t == 1:
                             recon_sample_sub_1 = recon_sample
