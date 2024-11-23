@@ -887,7 +887,7 @@ class Trainer(object):
                 # all_recons # SHape 50, 24, 1, 128, 128
 
                 # all_recon = all_recons[:, 0] # 50, 1, 128, 128
-                s = all_recons.shape[0]
+                s = all_recons.shape
                 all_recons = all_recons.cpu().reshape(s[1], s[2], s[3], s[4]*self.model.module.num_timesteps)
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
                                  nrow=6)
