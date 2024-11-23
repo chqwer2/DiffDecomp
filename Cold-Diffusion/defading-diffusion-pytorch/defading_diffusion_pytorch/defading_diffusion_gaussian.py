@@ -785,6 +785,7 @@ class Trainer(object):
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
 
+
             if (self.step + 1) % (min(self.train_num_steps // 100 + 1, 100)) == 0:
                 print(f'{self.step + 1}: {u_loss}')
 
@@ -792,7 +793,11 @@ class Trainer(object):
             # writer.add_scalar("Loss/train", loss.item(), self.step)
             acc_loss = acc_loss + (u_loss / self.gradient_accumulate_every)
 
+            max_norm = 1.0  # Maximum norm for gradients
+            torch.nn.utils.clip_grad_norm_(self.model.restore_fn.parameters(), max_norm)
+
             self.opt.step()
+
             self.opt.zero_grad()
 
             if self.step % self.update_ema_every == 0:
