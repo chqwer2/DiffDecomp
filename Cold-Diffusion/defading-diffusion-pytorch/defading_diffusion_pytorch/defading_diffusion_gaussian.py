@@ -311,21 +311,24 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.sampling_routine == 'x0_step_down_fre':
 
-                    if t <= 1:
-                        if t == 1:
-                            recon_sample_sub_1 = recon_sample
-                            k = self.get_kspace_kernels(0, rand_kernels)
-
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
-                            faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
-
-                        else:
+                    if t == 0:
+                        # if t == 1:
+                        #     recon_sample_sub_1 = recon_sample
+                        #     k = self.get_kspace_kernels(0, rand_kernels)
+                        #
+                        #     recon_sample = apply_ksu_kernel(recon_sample, k)
+                        #     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
+                        #
+                        # else:
                             faded_recon_sample = recon_sample
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
 
                         with torch.no_grad():
-                            kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
+                            if t > 1:
+                                kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
+                            else:
+                                kt_sub_1 = torch.ones_like(k_full).to(sample_device)
 
                             recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                             recon_sample_sub_1_fre = recon_sample_sub_1_fre # * kt_sub_1
@@ -338,7 +341,7 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
-                        # (1 - kt) *
+
                         faded_recon_sample_fre = faded_recon_sample_fre  + \
                                     (recon_sample_sub_1_fre - recon_sample_fre) * k_mask
 
