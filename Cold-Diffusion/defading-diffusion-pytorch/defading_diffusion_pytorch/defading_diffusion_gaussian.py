@@ -897,8 +897,8 @@ class Trainer(object):
                                                                 all_recons_residual.shape[1],
                                                                 all_recons_residual.shape[2], s//2)
                 all_recons_residual = torch.concat([ zeros, all_recons_residual, zeros], dim=-1)
-                all_recons = torch.stack([all_recons, all_recons_residual], dim=-2)
-                
+                all_recons = torch.concat([all_recons, all_recons_residual], dim=-2)
+
                 print("all_recons = ", all_recons.shape)
 
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
