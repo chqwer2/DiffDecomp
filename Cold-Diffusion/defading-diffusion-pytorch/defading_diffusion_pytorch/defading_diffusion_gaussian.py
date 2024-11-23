@@ -899,10 +899,10 @@ class Trainer(object):
                 all_recons_residual = all_recons - og_img.repeat(1, 1, 1, repeats)
                 # all_recons[:, :, :, s:]
 
-                # padding = torch.zeros_like(all_recons_residual[:, :, :, :s // 2])
-                # all_recons_residual = torch.cat([padding, all_recons_residual, padding], dim=-1)
+                padding = torch.zeros_like(all_recons_residual[:, :, :, :s // 2])
+                all_recons_residual_2 = torch.cat([padding, all_recons_residual, padding], dim=-1)
 
-                all_recons = torch.cat([all_recons, all_recons_residual], dim=-2)
+                all_recons = torch.cat([all_recons, all_recons_residual_2, all_recons_residual], dim=-2)
 
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
                                  nrow=1)
