@@ -317,6 +317,7 @@ class GaussianDiffusion(nn.Module):
 
                     if t <= 1:
                         faded_recon_sample = recon_sample
+
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
                         faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
@@ -338,10 +339,10 @@ class GaussianDiffusion(nn.Module):
                         k_mask = (kt_sub_1 - kt).cuda()  # Stride
                         fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
 
-                        # faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend #* k_mask
+                        faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend #* k_mask
 
-                        faded_recon_sample_fre = recon_cache * kt_sub_1 + fre_amend
-                        recon_cache = recon_cache * (1-k_mask) + recon_sample * k_mask
+                        # faded_recon_sample_fre = recon_cache * kt_sub_1 + fre_amend
+                        # recon_cache = recon_cache * (1-k_mask) + recon_sample * k_mask
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
@@ -537,7 +538,9 @@ class GaussianDiffusion(nn.Module):
         all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
 
         choose_fade = []
+        print("debug: t = ", t)
         for step in range(t.shape[0]):
+            print("debug: step = ", t[step], step)
             if step != -1:
                 choose_fade.append(all_fades[t[step], step])
             else:
