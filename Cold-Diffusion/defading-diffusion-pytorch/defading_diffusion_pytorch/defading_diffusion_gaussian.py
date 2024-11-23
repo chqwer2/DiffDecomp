@@ -337,7 +337,7 @@ class GaussianDiffusion(nn.Module):
                         k_mask = (kt_sub_1 - kt).cuda()
                         fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
 
-                        faded_recon_sample_fre += fre_amend
+                        faded_recon_sample_fre =  faded_recon_sample_fre * (1-k_mask) + fre_amend * k_mask
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
                         # Strange black stripe
