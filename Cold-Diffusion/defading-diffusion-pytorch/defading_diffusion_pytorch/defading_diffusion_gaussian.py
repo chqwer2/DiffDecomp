@@ -883,12 +883,14 @@ class Trainer(object):
                 combine = torch.cat((return_k, xt,
                                      all_images, direct_recons, og_img, aux), 2)
 
+                print("combine shape: ", combine.shape)
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
                 # all_recons # SHape 50, 24, 1, 128, 128
 
                 # all_recon = all_recons[:, 0] # 50, 1, 128, 128
                 s = all_recons.shape
                 all_recons = all_recons.cpu().reshape(s[1], s[2], s[3], s[4]*s[0])
+                # all
                 print("all_recons = ", all_recons.shape)
 
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
