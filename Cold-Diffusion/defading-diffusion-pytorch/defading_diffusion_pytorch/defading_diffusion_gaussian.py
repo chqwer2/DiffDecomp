@@ -337,12 +337,14 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
                         # Mask Region...
-                        # k_mask = (kt_sub_1 - kt).cuda()
+                        k_mask = (kt_sub_1 - kt).cuda()
                         # (1 - kt) *
-                        faded_recon_sample_fre = faded_recon_sample_fre + \
-                                    (recon_sample_sub_1_fre - recon_sample_fre) * ( 1 / (t))
+                        faded_recon_sample_fre = faded_recon_sample_fre  + \
+                                    (recon_sample_sub_1_fre - recon_sample_fre) * k_mask
 
-                        # faded_recon_sample_fre = faded_recon_sample_fre - recon_sample_fre + recon_sample_sub_1_fre
+                        # faded_recon_sample_fre = faded_recon_sample_fre - \
+                        #                          recon_sample_fre + \
+                        #                          recon_sample_sub_1_fre
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
                         # Strange black stripe
@@ -851,13 +853,13 @@ class Trainer(object):
 
 
                 os.makedirs(self.results_folder, exist_ok=True)
-                utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
-                utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
-                                 nrow=6)
-                utils.save_image(direct_recons,
-                                 str(self.results_folder / f'{self.step}-sample-direct_recons.png'), nrow=6)
-                utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
-                utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
+                # utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
+                # utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
+                #                  nrow=6)
+                # utils.save_image(direct_recons,
+                #                  str(self.results_folder / f'{self.step}-sample-direct_recons.png'), nrow=6)
+                # utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
+                # utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
 
                 return_k = return_k.cuda()
 

@@ -178,7 +178,7 @@ else:
         number = os.listdir(args.save_folder.rstrip(name)).__len__()
         args.save_folder = os.path.join(args.save_folder.rstrip(name), f"{number}_" + name)
 
-    save_and_sample_every = 100
+    save_and_sample_every = 500
 
 print("SAVE FOLDER: ", args.save_folder)
 
