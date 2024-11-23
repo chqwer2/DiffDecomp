@@ -312,14 +312,6 @@ class GaussianDiffusion(nn.Module):
                 elif self.sampling_routine == 'x0_step_down_fre':
 
                     if t == 0:
-                        # if t == 1:
-                        #     recon_sample_sub_1 = recon_sample
-                        #     k = self.get_kspace_kernels(0, rand_kernels)
-                        #
-                        #     recon_sample = apply_ksu_kernel(recon_sample, k)
-                        #     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
-                        #
-                        # else:
                             faded_recon_sample = recon_sample
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
@@ -340,11 +332,10 @@ class GaussianDiffusion(nn.Module):
 
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
+                        fre_amend = (recon_sample_sub_1_fre - recon_sample_fre)
+                        print("fre_amend sum:", fre_amend.sum())
 
-                        faded_recon_sample_fre = faded_recon_sample_fre  + \
-                                    (recon_sample_sub_1_fre - recon_sample_fre) #* k_mask
-
-                        # faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
+                        faded_recon_sample_fre += fre_amend
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
                         # Strange black stripe
