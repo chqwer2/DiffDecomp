@@ -234,6 +234,8 @@ class GaussianDiffusion(nn.Module):
         xt = faded_recon_sample
         direct_recons = None
         recon_sample = None
+        all_recons = []
+        all_masks = []
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
@@ -248,10 +250,7 @@ class GaussianDiffusion(nn.Module):
 
             if direct_recons is None:
                 direct_recons = recon_sample
-                recon_cache   = recon_sample
-                # TODO
-                # faded_recon_sample = recon_sample
-
+                # recon_cache   = recon_sample
 
             if self.degradation_type == 'fade':
                 if self.sampling_routine == 'default':
@@ -338,11 +337,7 @@ class GaussianDiffusion(nn.Module):
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()  # Stride
                         fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
-
-                        faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend #* k_mask
-
-                        # faded_recon_sample_fre = recon_cache * kt_sub_1 + fre_amend
-                        # recon_cache = recon_cache * (1-k_mask) + recon_sample * k_mask
+                        faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
@@ -352,9 +347,14 @@ class GaussianDiffusion(nn.Module):
 
 
             recon_sample = faded_recon_sample
+            all_recons.append(recon_sample)
+            # all_masks.append()
             t -= 1
 
-        return xt, direct_recons, recon_sample, return_k
+        all_recons = torch.stack(all_recons)
+        print("all_recons shape: ", all_recons.shape)
+
+        return xt, direct_recons, recon_sample, return_k, all_recons
 
     @torch.no_grad()
     def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
@@ -538,9 +538,8 @@ class GaussianDiffusion(nn.Module):
         all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
 
         choose_fade = []
-        print("debug: t = ", t)
+        # print("debug: t = ", t), [1, 4, 3, 3, 3, 2, 3, 4, 4, 2, 0, 4]
         for step in range(t.shape[0]):
-            print("debug: step = ", t[step], step)
             if step != -1:
                 choose_fade.append(all_fades[t[step], step])
             else:
@@ -822,7 +821,7 @@ class Trainer(object):
                 aux = data_dict['aux'].cuda()
 
                 # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                xt, direct_recons, all_images, return_k = self.ema_model.module.sample(
+                xt, direct_recons, all_images, return_k, all_recons = self.ema_model.module.sample(
                                                  batch_size=batches,
                                                  faded_recon_sample=og_img,
                                                  aux=aux)
@@ -831,6 +830,7 @@ class Trainer(object):
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
                 all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
+                all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
                 direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
                 xt = (xt + 1) * 0.5
 
@@ -869,7 +869,6 @@ class Trainer(object):
                 print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
 
-
                 os.makedirs(self.results_folder, exist_ok=True)
                 # utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
                 # utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
@@ -885,6 +884,13 @@ class Trainer(object):
                                      all_images, direct_recons, og_img, aux), 2)
 
                 utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
+                # all_recons # SHape 50, 24, 1, 128, 128
+
+                # all_recon = all_recons[:, 0] # 50, 1, 128, 128
+                all_recon = all_recons.cpu().reshape(all_recon.shape[1], 1, 128, 128*self.model.timesteps)
+                utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
+                                 nrow=6)
+
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)
                 print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))
