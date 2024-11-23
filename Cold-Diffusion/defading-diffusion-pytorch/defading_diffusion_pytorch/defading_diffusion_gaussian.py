@@ -890,8 +890,15 @@ class Trainer(object):
                 # all_recon = all_recons[:, 0] # 50, 1, 128, 128
                 s = all_recons.shape
                 all_recons = all_recons.cpu()
-                # all_recons = torch.concat(*all_recons[:], dim=-1)
                 all_recons = torch.cat(list(all_recons), dim=-1)
+                s = all_recons.shape[-2]
+                all_recons_residual = all_recons[:, :, :, :-s] - all_recons[:, :, :, s:]
+                zeros = torch.zeros(all_recons_residual.shape[0],
+                                                                all_recons_residual.shape[1],
+                                                                all_recons_residual.shape[2], s//2)
+                all_recons_residual = torch.concat([ zeros, all_recons_residual, zeros], dim=-1)
+                all_recons = torch.stack([all_recons, all_recons_residual], dim=-2)
+                
                 print("all_recons = ", all_recons.shape)
 
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
