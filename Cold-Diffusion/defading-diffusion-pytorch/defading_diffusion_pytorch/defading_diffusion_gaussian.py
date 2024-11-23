@@ -833,7 +833,13 @@ class Trainer(object):
                 all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
                 direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
                 xt = (xt + 1) * 0.5
+                og_img = og_img.cpu()
+                aux = aux.cpu()
+                all_images = all_images.cpu()
+                direct_recons = direct_recons.cpu()
+                xt = xt.cpu()
 
+                
                 # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
                 # print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
                 # print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
@@ -878,7 +884,7 @@ class Trainer(object):
                 # utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
                 # utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
 
-                return_k = return_k.cuda()
+                return_k = return_k.cpu()
 
                 combine = torch.cat((return_k, xt,
                                      all_images, direct_recons, og_img, aux), 2)
