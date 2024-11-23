@@ -375,7 +375,7 @@ class Model(nn.Module):
         self.phaloss = PhaLoss()  # .to(self.device, non_blocking=True)
 
         self.use_front_fre = False
-        self.use_after_fre = True
+        self.use_after_fre = False
         print("=== use front fre", self.use_front_fre)   # NAN
         print("=== use after fre", self.use_after_fre)   # use_after_fre_ BUG NAN
 

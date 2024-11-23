@@ -117,7 +117,7 @@ def get_ksu_kernel(timesteps, image_size,
         # Generate the sampling rate list with torch.linspace, reversed, and skip the first element
         sr_list = torch.linspace(start=1/accelerated_factor, end=1, steps=timesteps + 1).flip(0)
         # Start from 0.01
-
+        print("sr_list length: ", sr_list.shape, sr_list)
         for sr in sr_list:
             af = 1 / sr  # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
@@ -250,7 +250,7 @@ def apply_to_spatial(fft, pixel_range='-1_1'):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import numpy as np
-    masks = get_ksu_kernel(10, 128)
+    masks = get_ksu_kernel(10, 128, "LinearSamplingRate")
 
     image_size = 128
     batch_size = 1
@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
     for m in masks:
         m = m.unsqueeze(0)
-        img = apply_ksu_kernel(img, m, pixel_range='0_1')
+        img = apply_ksu_kernel(img, m, pixel_range='0_1', )
         masked_img.append(img)
         print("-- k shape: ", m.shape)
         print("-- img shape: ", img.shape)
