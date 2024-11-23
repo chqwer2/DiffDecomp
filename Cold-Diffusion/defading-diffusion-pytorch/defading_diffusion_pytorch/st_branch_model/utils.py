@@ -209,13 +209,16 @@ class AMPLoss(nn.Module):
 
         # Perform FFT and compute magnitudes
         x_fft = torch.fft.rfft2(x, norm=self.norm)
-        x_mag = torch.clamp(torch.abs(x_fft), min=self.epsilon)  # Clamp to avoid zeros
-
         y_fft = torch.fft.rfft2(y, norm=self.norm)
+
+        x_mag = torch.clamp(torch.abs(x_fft), min=self.epsilon)  # Clamp to avoid zeros
         y_mag = torch.clamp(torch.abs(y_fft), min=self.epsilon)  # Clamp to avoid zeros
 
+        x_phase = torch.angle(x_fft)
+        y_phase = torch.angle(y_fft)
+
         # Compute L1 loss between magnitudes
-        return self.cri(x_mag, y_mag)
+        return self.cri(x_mag, y_mag) + self.cri(x_phase, y_phase)
 
 
 class PhaLoss(nn.Module):

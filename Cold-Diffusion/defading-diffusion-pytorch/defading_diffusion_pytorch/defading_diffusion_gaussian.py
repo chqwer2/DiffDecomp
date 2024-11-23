@@ -586,12 +586,13 @@ class GaussianDiffusion(nn.Module):
                 loss += lpips_weight * lpips_loss
 
 
-            # if self.use_fre_loss:  # NAN
-            #     fft_weight = 0.1
-            #     amp = self.amploss(x_recon, x_start)
-            #     pha = self.phaloss(x_recon, x_start)
-            #
-            #     loss += fft_weight * (amp + pha)
+            if self.use_fre_loss:  # NAN
+                fft_weight = 0.01
+                amp = self.amploss(x_recon, x_start)
+                # pha = self.phaloss(x_recon, x_start)
+
+                loss += fft_weight * amp
+
             #     # NAN
             #     if torch.isnan(loss):
             #         print("NAN = amp:", amp, "pha:", pha)
@@ -620,7 +621,7 @@ class GaussianDiffusion(nn.Module):
             #     amp = self.amploss(x_recon_fre, x_start)
             #     pha = self.phaloss(x_recon_fre, x_start)
             #
-            #     loss += fft_weight * (amp + pha)
+            #     loss += fft_weight * amp
 
         return loss
 
