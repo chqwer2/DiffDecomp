@@ -332,7 +332,7 @@ class GaussianDiffusion(nn.Module):
 
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
-                        fre_amend = (recon_sample_sub_1_fre - recon_sample_fre)
+                        fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
                         print("fre_amend sum:", fre_amend.sum())
 
                         faded_recon_sample_fre += fre_amend
