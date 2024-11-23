@@ -900,7 +900,7 @@ class Trainer(object):
                 # all_recons[:, :, :, s:]
                 all_recons_residual_2 = all_recons[:, :, :, s:] - all_recons[:, :, :, :-s]
                 padding = torch.zeros_like(all_recons_residual[:, :, :, :s // 2])
-                all_recons_residual_2 = torch.cat([padding, all_recons_residual, padding], dim=-1)
+                all_recons_residual_2 = torch.cat([padding, all_recons_residual_2, padding], dim=-1)
 
                 all_recons = torch.cat([all_recons, all_recons_residual_2, all_recons_residual], dim=-2)
 
