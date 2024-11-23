@@ -782,7 +782,8 @@ class Trainer(object):
 
                 img = data_dict['img'].cuda()
                 # Add some Gaussian
-                img = img + torch.randn_like(img) * 0.1
+                sigma = torch.rand(1).item() * 0.1
+                img = img + torch.randn_like(img) * sigma
 
                 aux = data_dict['aux'].cuda()
 
