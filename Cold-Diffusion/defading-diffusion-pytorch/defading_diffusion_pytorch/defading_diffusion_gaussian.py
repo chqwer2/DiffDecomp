@@ -894,7 +894,7 @@ class Trainer(object):
                 print("all_recons = ", all_recons.shape)
 
                 utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
-                                 nrow=1)
+                                 nrow=6)
 
 
                 acc_loss = acc_loss / (self.save_and_sample_every + 1)
