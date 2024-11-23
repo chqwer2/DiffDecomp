@@ -338,7 +338,7 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
                             recon_sample_fre = recon_sample_fre # * kt
 
-                        faded_recon_sample_fre, _ = apply_tofre(recon_sample, k_full)
+                        faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
 
