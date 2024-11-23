@@ -150,7 +150,7 @@ class GaussianDiffusion(nn.Module):
         self.use_fre_loss = True
         self.update_kernel = False
         self.use_lpips = True
-        self.clamp_every_sample = False # Stride
+        self.clamp_every_sample = True # Stride
 
 
     # if _MRIDOWN == "4X":
@@ -249,7 +249,7 @@ class GaussianDiffusion(nn.Module):
             if direct_recons is None:
                 direct_recons = recon_sample
                 # TODO
-                faded_recon_sample = recon_sample
+                # faded_recon_sample = recon_sample
 
 
             if self.degradation_type == 'fade':
@@ -334,10 +334,10 @@ class GaussianDiffusion(nn.Module):
 
 
                         # Mask Region...
-                        k_mask = (kt_sub_1 - kt).cuda()
+                        k_mask = (kt_sub_1 - kt).cuda()  # Stride
                         fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
 
-                        faded_recon_sample_fre =  faded_recon_sample_fre * (1-k_mask) + fre_amend * k_mask
+                        faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend #* k_mask
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
                         # Strange black stripe
@@ -856,7 +856,7 @@ class Trainer(object):
                 ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
                 psnr_ = psnr(img_, og_img_, data_range=1).mean()
 
-                lpips = self.lpips(all_images, og_img).mean()
+                lpips = self.lpips(direct_recons, og_img).mean()
 
                 print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
