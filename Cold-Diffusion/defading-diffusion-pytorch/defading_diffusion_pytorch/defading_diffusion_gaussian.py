@@ -330,7 +330,7 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                             recon_sample_sub_1_fre = recon_sample_sub_1_fre # * kt_sub_1
 
-                            kt = self.get_kspace_kernels(t - 1, rand_kernels)
+                            kt = self.get_kspace_kernels(t - 1, rand_kernels)  # last one
 
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
                             recon_sample_fre = recon_sample_fre # * kt
@@ -342,11 +342,9 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre = faded_recon_sample_fre  + \
                                     (recon_sample_sub_1_fre - recon_sample_fre) * k_mask
 
-                        # faded_recon_sample_fre = faded_recon_sample_fre - \
-                        #                          recon_sample_fre + \
-                        #                          recon_sample_sub_1_fre
-
+                        faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
+
                         # Strange black stripe
                     if self.clamp_every_sample:
                         faded_recon_sample =faded_recon_sample.clamp(-1, 1)
@@ -826,12 +824,6 @@ class Trainer(object):
                 direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
                 xt = (xt + 1) * 0.5
 
-                # Clip
-                # all_images = torch.clamp(all_images, 0, 1)
-                # direct_recons = torch.clamp(direct_recons, 0, 1)
-
-                # return_sample = (xt - xt.min()) / (xt.max() - xt.min())
-
                 # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
                 # print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
                 # print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
@@ -849,15 +841,23 @@ class Trainer(object):
                 og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                 img_ = np.clip(img_, 0, 1)
 
-                print("img_ shape: ", img_.shape, img_.max(), img_.min())
-                print("og_img_ shape: ", og_img_.shape, og_img_.max(), og_img_.min())
+                ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                psnr = psnr(img_, og_img_, data_range=1).mean()
+
+                lpips = self.lpips(all_images, og_img).mean()
+
+                print("=== Final Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+
+                img_ = direct_recons.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                img_ = np.clip(img_, 0, 1)
 
                 ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
                 psnr = psnr(img_, og_img_, data_range=1).mean()
-                # if self.backbone == 'twobranch':
+
                 lpips = self.lpips(all_images, og_img).mean()
 
-                print("=== Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+                print("=== first step Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+
 
 
                 os.makedirs(self.results_folder, exist_ok=True)
