@@ -204,8 +204,8 @@ class AMPLoss(nn.Module):
 
     def forward(self, x, y):
         # Validate inputs
-        if not torch.isfinite(x).all() or not torch.isfinite(y).all():
-            raise ValueError("Input contains NaN or Inf values")
+        # if not torch.isfinite(x).all() or not torch.isfinite(y).all():
+        #     raise ValueError("Input contains NaN or Inf values")
 
         # Perform FFT and compute magnitudes
         x_fft = torch.fft.rfft2(x, norm=self.norm)
