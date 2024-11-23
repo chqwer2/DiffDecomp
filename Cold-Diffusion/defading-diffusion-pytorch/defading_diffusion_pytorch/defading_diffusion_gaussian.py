@@ -248,6 +248,9 @@ class GaussianDiffusion(nn.Module):
 
             if direct_recons is None:
                 direct_recons = recon_sample
+                # TODO
+                faded_recon_sample = recon_sample
+
 
             if self.degradation_type == 'fade':
                 if self.sampling_routine == 'default':
