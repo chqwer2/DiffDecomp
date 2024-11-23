@@ -146,6 +146,25 @@ def get_ksu_kernel(timesteps, image_size,
     # Return masks, excluding the first one
     return masks[1:]
 
+class high_fre_mask:
+    def __init__(self):
+        self.mask_cache = {}
+
+    def __call__(self, H, W):
+        if (H, W) in self.mask_cache:
+            return self.mask_cache[(H, W)]
+        center_x, center_y = H // 2, W // 2
+        radius = 30  # 影响的频率范围半径
+
+        high_freq_mask = torch.ones(H, W)
+        for i in range(H):
+            for j in range(W):
+                if (i - center_x) ** 2 + (j - center_y) ** 2 <= radius ** 2:
+                    high_freq_mask[i, j] = 0.0
+        self.mask_cache[(H, W)] = high_freq_mask
+        return high_freq_mask
+
+high_fre_mask_cls = high_fre_mask()
 
 def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
     fft, mask = apply_tofre(x_start, mask, pixel_range)
@@ -158,16 +177,11 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
         fft_magnitude = torch.abs(fft)  # 幅度
         fft_phase = torch.angle(fft)  # 相位
-        print("fft shape: ", fft.shape, fft_magnitude.shape, fft_phase.shape)
+        # print("fft shape: ", fft.shape, fft_magnitude.shape, fft_phase.shape)
         _, _, H, W = fft.shape
-        center_x, center_y = H // 2, W // 2
-        radius = 30  # 影响的频率范围半径
-        high_freq_mask = torch.ones_like(fft_magnitude)
-        for i in range(H):
-            for j in range(W):
-                if (i - center_x) ** 2 + (j - center_y) ** 2 <= radius ** 2:
-                    high_freq_mask[i, j] = 0.0  # 屏蔽低频部分
 
+        high_freq_mask = high_fre_mask_cls(H, W).to(fft.device)
+        high_freq_mask = high_freq_mask.unsqueeze(0).unsqueeze(0).repeat(fft.shape[0], 1, 1, 1)
 
         noise_magnitude = torch.randn_like(fft_magnitude) * 0.1 * fft_magnitude.mean()
 
