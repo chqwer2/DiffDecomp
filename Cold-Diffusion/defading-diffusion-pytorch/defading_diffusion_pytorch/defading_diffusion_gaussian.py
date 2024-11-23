@@ -841,22 +841,22 @@ class Trainer(object):
                 og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                 img_ = np.clip(img_, 0, 1)
 
-                ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr = psnr(img_, og_img_, data_range=1).mean()
+                ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                psnr_ = psnr(img_, og_img_, data_range=1).mean()
 
                 lpips = self.lpips(all_images, og_img).mean()
 
-                print("=== Final Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+                print("=== Final Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
                 img_ = direct_recons.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                 img_ = np.clip(img_, 0, 1)
 
-                ssim = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr = psnr(img_, og_img_, data_range=1).mean()
+                ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                psnr_ = psnr(img_, og_img_, data_range=1).mean()
 
                 lpips = self.lpips(all_images, og_img).mean()
 
-                print("=== first step Metrics: SSIM: ", ssim, " PSNR: ", psnr, " LPIPS: ", lpips)
+                print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
 
 
