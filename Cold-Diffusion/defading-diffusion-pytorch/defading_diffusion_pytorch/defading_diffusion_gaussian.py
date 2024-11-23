@@ -313,7 +313,7 @@ class GaussianDiffusion(nn.Module):
                             faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
                 elif self.sampling_routine == 'x0_step_down_fre':
-
+                    all_recons.append(recon_sample)
                     if t <= 1:
                         faded_recon_sample = recon_sample
 
@@ -347,7 +347,7 @@ class GaussianDiffusion(nn.Module):
 
 
             recon_sample = faded_recon_sample
-            all_recons.append(recon_sample)
+
             # all_masks.append()
             t -= 1
 
