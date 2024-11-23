@@ -311,8 +311,8 @@ class GaussianDiffusion(nn.Module):
 
                 elif self.sampling_routine == 'x0_step_down_fre':
 
-                    if t == 0:
-                            faded_recon_sample = recon_sample
+                    if t <= 1:
+                        faded_recon_sample = recon_sample
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
                         faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
