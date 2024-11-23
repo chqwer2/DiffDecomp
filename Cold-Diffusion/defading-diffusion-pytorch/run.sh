@@ -34,10 +34,10 @@ diffusion_type=twounet_kspace
 time_step=50
 image_size=64
 sampling_routine=x0_step_down # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
-loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
+loss_type=l1   #  l2 1     # l2 | l1 | l2_l1
 
 
-tag=l2_default     # x0_step_down | x0_step_down_fre
+tag=l1     # x0_step_down | x0_step_down_fre
 
 deviceid=0
 # fre_before_attn + l1

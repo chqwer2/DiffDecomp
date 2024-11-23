@@ -195,12 +195,12 @@ class FreBlock(nn.Module):
         super(FreBlock, self).__init__()
 
         self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
-        self.amp_pha_fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1),
+        self.amp_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1),
                                           nn.LeakyReLU(0.1, inplace=True),
-                                      nn.Conv2d(channels, 2*channels, 3, 1, 1))
+                                      nn.Conv2d(channels, channels, 3, 1, 1))
 
-        # self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
-        #                               nn.Conv2d(channels, channels, 3, 1, 1))
+        self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
+                                      nn.Conv2d(channels, channels, 3, 1, 1))
         self.post = nn.Conv2d(channels, channels, 1, 1, 0)
 
 
@@ -214,31 +214,27 @@ class FreBlock(nn.Module):
         k = torch.nn.functional.interpolate(k, size=(H, W), mode='bilinear', align_corners=False).cuda()
         k = k[...,:half_W]
 
-
-        msF = torch.fft. rfft2(self.fpre(x)+1e-8, norm='backward')
+        fpre = self.fpre(x)
+        msF = torch.fft. rfft2(fpre + 1e-8, norm='ortho')
 
         msF_amp = torch.abs(msF)
         msF_pha = torch.angle(msF)
 
-        channels = msF_amp.shape[1]
-        msF_component = torch.concat([msF_amp, msF_pha], dim=1)
-        msF_component_fuse = self.amp_pha_fuse(msF_component) # + msF_component
+        # channels = msF_amp.shape[1]
 
-        # print("k shape, msF_component_fuse shape", k.shape, msF_component_fuse.shape, x.shape, channels)
-        # print("msF_amp shape, msF_pha shape", msF_amp.shape, msF_pha.shape)
+        # msF_component = torch.concat([msF_amp, msF_pha], dim=1)
+        amp_fuse = self.amp_fuse(msF_amp) # + msF_component
+        pha_fuse = self.pha_fuse(msF_pha) # + msF_component
 
-        # torch.Size([24, 1, 128, 128]) torch.Size([24, 256, 16, 9]) torch.Size([24, 256, 16, 16])
-
-
-        amp_fuse = (1-k) * msF_component_fuse[:, :channels, :, :] + msF_amp
-        pha_fuse = (1-k) * msF_component_fuse[:, channels:, :, :] + msF_pha
+        # amp_fuse = torch.clamp((1-k) * msF_amp_fu + msF_amp, 1e-8)
+        # pha_fuse = (1-k) * msF_pha_fu + msF_pha
 
 
         real = amp_fuse * torch.cos(pha_fuse) + 1e-8
         imag = amp_fuse * torch.sin(pha_fuse) + 1e-8
 
-        out = torch.complex(real, imag)+1e-8
-        out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='backward'))
+        out = torch.complex(real, imag) + 1e-8
+        out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='ortho'))
         out = self.post(out)
         out = out + x
         out = torch.nan_to_num(out, nan=1e-5, posinf=1e-5, neginf=1e-5)
@@ -421,7 +417,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_2(h, temb)
 
         # if self.use_front_fre or self.use_after_fre:
-        # h = self.spatial.mid_fre(h, k) + h  # NAN??
+        h = self.spatial.mid_fre(h, k) + h  # NAN??
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
