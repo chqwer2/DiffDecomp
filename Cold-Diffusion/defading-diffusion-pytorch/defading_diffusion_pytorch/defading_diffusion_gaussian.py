@@ -895,7 +895,7 @@ class Trainer(object):
                 s = all_recons.shape[-2]
                 repeats = all_recons.shape[3] // og_img.shape[3]  # Calculate repeat factor
                 # tensor_small = tensor_small.repeat(1, 1, 1, repeats)
-                og_img = og_img.cuda()
+                og_img = og_img.cpu()
                 all_recons_residual = all_recons - og_img.repeat(1, 1, 1, repeats)
                 # all_recons[:, :, :, s:]
 
