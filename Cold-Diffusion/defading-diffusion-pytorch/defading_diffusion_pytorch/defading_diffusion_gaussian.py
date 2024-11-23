@@ -636,7 +636,11 @@ class GaussianDiffusion(nn.Module):
         elif self.degradation_type == 'kspace':
             self.kspace_kernels = self.kspace_kernels.to(device)
 
-        return self.p_losses(x1, x2, t, *args, **kwargs)
+        loss = self.p_losses(x1, x2, t, *args, **kwargs)
+        max_norm = 1.0  # Maximum norm for gradients
+        torch.nn.utils.clip_grad_norm_(self.restore_fn.parameters(), max_norm)
+
+        return loss
 
 
 
@@ -793,8 +797,6 @@ class Trainer(object):
             # writer.add_scalar("Loss/train", loss.item(), self.step)
             acc_loss = acc_loss + (u_loss / self.gradient_accumulate_every)
 
-            max_norm = 1.0  # Maximum norm for gradients
-            torch.nn.utils.clip_grad_norm_(self.model.restore_fn.parameters(), max_norm)
 
             self.opt.step()
 
