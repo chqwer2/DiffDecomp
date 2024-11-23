@@ -323,6 +323,8 @@ class GaussianDiffusion(nn.Module):
                             faded_recon_sample = recon_sample
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
+                        faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
+
 
                         with torch.no_grad():
                             if t > 1:
@@ -330,15 +332,12 @@ class GaussianDiffusion(nn.Module):
                             else:
                                 kt_sub_1 = torch.ones_like(k_full).to(sample_device)
 
-                            recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
-                            recon_sample_sub_1_fre = recon_sample_sub_1_fre # * kt_sub_1
-
                             kt = self.get_kspace_kernels(t - 1, rand_kernels)  # last one
 
+                            recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
-                            recon_sample_fre = recon_sample_fre # * kt
 
-                        faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
+
                         # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()
 
@@ -779,6 +778,9 @@ class Trainer(object):
             u_loss = 0
             for i in range(self.gradient_accumulate_every):
                 # inputs = next(self.dl).cuda()
+                last_model_state = self.model.state_dict()
+                optimizer_state = self.opt.state_dict()
+
                 data_dict = next(self.dl)
 
                 img = data_dict['img'].cuda()
@@ -786,6 +788,13 @@ class Trainer(object):
 
                 # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
+
+                if torch.isnan(loss).any():
+                    print(f"NaN encountered in epoch {self.step}. Reverting model.")
+                    self.model.load_state_dict(last_model_state)  # Revert model
+                    self.opt.load_state_dict(optimizer_state)  # Revert optimizer
+                    continue  # Skip the rest of this training step
+
 
                 u_loss += loss.item()
                 backwards(loss / self.gradient_accumulate_every, self.opt)
