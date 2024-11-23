@@ -889,7 +889,7 @@ class Trainer(object):
 
                 # all_recon = all_recons[:, 0] # 50, 1, 128, 128
                 s = all_recons.shape
-                all_recons = all_recons.cpu().reshape(s[1], s[2], s[3], s[4]*s[0])
+                all_recons = all_recons.cpu().reshape(s[1], s[2], s[3]*s[0], s[4])
                 # all
                 print("all_recons = ", all_recons.shape)
 
