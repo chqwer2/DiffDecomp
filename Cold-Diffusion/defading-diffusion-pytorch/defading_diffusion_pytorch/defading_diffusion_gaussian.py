@@ -835,9 +835,10 @@ class Trainer(object):
                 batches = self.batch_size
                 data_dict = next(self.dl)  # .cuda()
 
-                og_img = data_dict['img'].cuda()
-                aux = data_dict['aux'].cuda()
+
                 for routine in ['default', 'x0_step_down', 'x0_step_down_fre']:
+                    og_img = data_dict['img'].cuda()
+                    aux = data_dict['aux'].cuda()
 
                     # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
                     xt, direct_recons, all_images, return_k, all_recons = (
