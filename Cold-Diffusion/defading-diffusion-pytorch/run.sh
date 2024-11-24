@@ -36,9 +36,9 @@ sampling_routine=x0_step_down_fre  # x0_step_down_fre # x0_step_down_fre  # defa
 loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
 
 
-tag=l2_fre_noise    # x0_step_down | x0_step_down_fre
+tag=l2_fre_noise_gaunoise_albu    # x0_step_down | x0_step_down_fre
 
-deviceid=0
+deviceid=1
 # fre_before_attn + l1
 train_bs=12   # 4 | 32 | 24
 

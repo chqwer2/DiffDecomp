@@ -599,8 +599,8 @@ class GaussianDiffusion(nn.Module):
                 amp = self.amploss(x_recon, x_start)
 
                 loss += fft_weight * amp
-                if np.random.rand() < 0.01:
-                    print("amp loss:", amp)
+                # if np.random.rand() < 0.01:
+                #     print("amp loss:", amp)   # ~ 1.2....
 
 
         elif self.backbone == 'twobranch':
