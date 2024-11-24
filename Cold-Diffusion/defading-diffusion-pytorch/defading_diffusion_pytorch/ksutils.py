@@ -208,6 +208,8 @@ class MaskFunc:
             return self.center_fractions[choice], self.accelerations[choice]
 
 
+
+
 class RandomMaskFunc(MaskFunc):
     """
     Creates a random sub-sampling mask of a given shape.
