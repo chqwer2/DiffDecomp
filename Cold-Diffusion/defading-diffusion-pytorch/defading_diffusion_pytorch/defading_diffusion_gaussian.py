@@ -245,6 +245,7 @@ class GaussianDiffusion(nn.Module):
         recon_sample = None
         all_recons = []
         all_masks  = []
+        k_known_mask =  self.get_kspace_kernels(-1, rand_kernels)
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
@@ -331,7 +332,7 @@ class GaussianDiffusion(nn.Module):
                     all_recons.append(recon_sample)
                     if t <= 1:
                         faded_recon_sample = recon_sample
-                        all_masks.append(kt_sub_1)
+                        all_masks.append(k_known_mask)
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
                         faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
@@ -352,7 +353,9 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
-                    all_masks.append(kt_sub_1)
+
+                    k_known_mask += k_residual
+                    all_masks.append(k_known_mask)
 
 
                     if self.clamp_every_sample:
