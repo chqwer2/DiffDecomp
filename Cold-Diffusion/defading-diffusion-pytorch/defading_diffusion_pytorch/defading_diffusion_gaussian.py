@@ -148,7 +148,7 @@ class GaussianDiffusion(nn.Module):
         self.lpips = LPIPS().eval().cuda()  # .to(self.device, non_blocking=True)
 
         self.use_fre_loss = True
-        self.update_kernel = False
+        self.update_kernel = True
         self.use_lpips = True
         self.clamp_every_sample = True # Stride
         self.use_fre_noise = True
@@ -806,7 +806,7 @@ class Trainer(object):
 
 
                 if torch.isnan(loss).any():
-                    print(f"NaN encountered in epoch {self.step}. Reverting model.")
+                    print(f"NaN encountered in step {self.step}. Reverting model.")
                     self.model.load_state_dict(last_model_state)  # Revert model
                     self.opt.load_state_dict(optimizer_state)  # Revert optimizer
                     continue  # Skip the rest of this training step

@@ -86,9 +86,11 @@ class BrainDataset(BasicDataset):
         img, mask, aux = self.perform_trans(img, mask, aux)
         img, mask, aux = map(lambda arr: self.hwc_to_chw(arr), [img, mask, aux])
 
+        img = torch.clamp(img, 0, 1)
+        aux = torch.clamp(aux, 0, 1)
 
-        img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
-        aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
+        # img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
+        # aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
 
         img = img * 2 - 1.0
         aux = aux * 2 - 1.0
@@ -99,8 +101,12 @@ class BrainDataset(BasicDataset):
             assert img.ndimension() == 3
 
         data = {"img": img, "lb": mask, "aux": aux, 
-                "is_start": curr_dict["is_start"], "is_end": curr_dict["is_end"], "nframe": np.int32(curr_dict["nframe"]),
-                "scan_id": curr_dict["scan_id"], "z_id": curr_dict["z_id"], "file_id": curr_dict["file_id"]
+                "is_start": curr_dict["is_start"],
+                "is_end": curr_dict["is_end"],
+                "nframe": np.int32(curr_dict["nframe"]),
+                "scan_id": curr_dict["scan_id"],
+                "z_id": curr_dict["z_id"],
+                "file_id": curr_dict["file_id"]
                 }
 
         return data

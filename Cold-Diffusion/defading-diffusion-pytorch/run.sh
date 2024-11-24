@@ -21,8 +21,8 @@ aux_modality=T2F         # T1C, T1N, T2W, T2F
 num_channels=1
 
 
-diffusion_type=twobranch_fade    # unet | twobranch
-diffusion_type=twobranch_kspace    # Easy NaN
+#diffusion_type=twobranch_fade    # unet | twobranch
+#diffusion_type=twobranch_kspace    # Easy NaN
 
 #diffusion_type=unet_kspace
 diffusion_type=twounet_kspace
@@ -33,12 +33,12 @@ diffusion_type=twounet_kspace
 time_step=50
 image_size=64
 sampling_routine=x0_step_down_fre  # x0_step_down_fre # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
-loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
+loss_type=l1   #  l2 1     # l2 | l1 | l2_l1
 
 
-tag=set_baseline   # x0_step_down | x0_step_down_fre
+tag=set_baseline_l1   # x0_step_down | x0_step_down_fre
 
-deviceid=1
+deviceid=0
 # fre_before_attn + l1
 train_bs=12   # 4 | 32 | 24
 
