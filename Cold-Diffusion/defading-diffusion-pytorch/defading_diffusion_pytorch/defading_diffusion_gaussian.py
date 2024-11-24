@@ -566,7 +566,15 @@ class GaussianDiffusion(nn.Module):
 
     def p_losses(self, x_start, aux, t):
         self.debug_print = False
+
+        # Add some Gaussian
+        sigma = torch.rand(1).item() * 0.1
+
+
         x_mix, k = self.q_sample(x_start=x_start, t=t)
+
+        x_mix = x_mix + torch.randn_like(x_mix) * sigma  # used to add x_start, TODO
+
 
         if self.debug_print:
             self.debug_print = False
@@ -581,7 +589,7 @@ class GaussianDiffusion(nn.Module):
 
             # LPIPS
             if self.use_lpips:
-                lpips_weight = 0.1
+                lpips_weight = 0.05
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
 
@@ -591,7 +599,8 @@ class GaussianDiffusion(nn.Module):
                 amp = self.amploss(x_recon, x_start)
 
                 loss += fft_weight * amp
-
+                if np.random.rand() < 0.01:
+                    print("amp loss:", amp)
 
 
         elif self.backbone == 'twobranch':
@@ -782,14 +791,11 @@ class Trainer(object):
 
                 img = data_dict['img'].cuda()
 
-                # Add some Gaussian
-                sigma = torch.rand(1).item() * 0.1
-                img = img + torch.randn_like(img) * sigma
-
                 aux = data_dict['aux'].cuda()
 
-                # loss = self.model(inputs)
                 loss = torch.mean(self.model(img, aux))
+
+
                 if torch.isnan(loss).any():
                     print(f"NaN encountered in epoch {self.step}. Reverting model.")
                     self.model.load_state_dict(last_model_state)  # Revert model
