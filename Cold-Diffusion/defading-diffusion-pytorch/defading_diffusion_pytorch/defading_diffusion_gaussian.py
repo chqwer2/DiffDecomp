@@ -177,6 +177,9 @@ class GaussianDiffusion(nn.Module):
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None,
                t=None, sample_routine=None):
+
+        self.restore_fn.eval()
+
         rand_kernels = None
         if not sample_routine:
             sample_routine = self.sampling_routine
@@ -332,13 +335,11 @@ class GaussianDiffusion(nn.Module):
                             k_residual = kt_sub_1 - kt
                             recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
 
-                            # print(" k_residual shape: ", k_residual.shape)
-
-
                         fre_amend = recon_sample_fre * k_residual
-                        faded_recon_sample_fre =  faded_recon_sample_fre * (1-k_residual) + fre_amend
+                        faded_recon_sample_fre =  faded_recon_sample_fre + fre_amend  # * (1-k_residual)
 
-                        # faded_recon_sample_fre = faded_recon_sample_fre
+                        faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
+
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
                     if self.clamp_every_sample:
@@ -936,6 +937,7 @@ class Trainer(object):
 
                     acc_loss = 0
 
+                self.ema_model.module.restore_fn.train()
                 self.save()
 
             self.step += 1
