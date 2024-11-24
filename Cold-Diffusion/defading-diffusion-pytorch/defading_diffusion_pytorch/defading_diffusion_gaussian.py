@@ -332,10 +332,11 @@ class GaussianDiffusion(nn.Module):
                             k_residual = kt_sub_1 - kt
                             recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
 
+                            print(" k_residual shape: ", k_residual.shape)
+
 
                         fre_amend = recon_sample_fre * k_residual
-                        faded_recon_sample_fre =  faded_recon_sample_fre * kt_sub_1 + \
-                                                  fre_amend * k_residual
+                        faded_recon_sample_fre =  faded_recon_sample_fre * (1-k_residual) + fre_amend
 
                         # faded_recon_sample_fre = faded_recon_sample_fre
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
