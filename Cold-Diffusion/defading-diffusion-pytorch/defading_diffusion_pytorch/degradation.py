@@ -44,7 +44,7 @@ from torch.fft import *
 try:
     from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
 except:
-    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
+    # from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
     from ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
 
 # Gaussain 2D Mask Support
@@ -130,6 +130,9 @@ def get_ksu_kernel(timesteps, image_size,
         for sr in sr_list:
             af = 1 / sr  # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
+            cf = 0.1
+            print("af, cf = ", af, cf)
+
             masks.append(get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
     elif ksu_routine == 'LogSamplingRate':
@@ -144,6 +147,9 @@ def get_ksu_kernel(timesteps, image_size,
         for sr in sr_list:
             af = 1 / sr
             cf = sr * 0.32
+            cf = 0.1
+            print("af, cf = ", af, cf)
+
             masks.append(get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
     elif mask_method == 'gaussian_2d':
@@ -182,10 +188,9 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
     # try:
     # Use the high frequency mask to add noise
     if use_fre_noise:
-        # fft = torch.fft.fftshift(fft)  # 将低频分量移到中心   # Bug
         fft_magnitude = torch.abs(fft)  # 幅度
         fft_phase = torch.angle(fft)  # 相位
-        # print("fft shape: ", fft.shape, fft_magnitude.shape, fft_phase.shape)
+
         _, _, H, W = fft.shape
 
         high_freq_mask = high_fre_mask_cls(H, W).to(fft.device)
@@ -256,18 +261,25 @@ def apply_to_spatial(fft, pixel_range='-1_1'):
 
 
 if __name__ == "__main__":
+    # First STEP
     import matplotlib.pyplot as plt
     import numpy as np
-    masks = get_ksu_kernel(10, 128, "LinearSamplingRate")
 
-    image_size = 128
+    image_size = 240
+
+    masks = get_ksu_kernel(3, image_size,
+                           "LinearSamplingRate")
+
+
     batch_size = 1
 
     img = plt.imread("/Users/haochen/Documents/GitHub/DiffDecomp/Cold-Diffusion/generation-diffusion-pytorch/defading_diffusion_pytorch/assets/img.png")
-    img = cv2.resize(img, (128, 128))
+    img = cv2.resize(img, (image_size, image_size), interpolation=cv2.INTER_LINEAR)
+    # to gray scale
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    img = np.transpose(img, (2, 0, 1))
-    img = img[0]
+    # img = np.transpose(img, (2, 0, 1))
+    # img = img[0]
     img = np.expand_dims(img, axis=0)
     img = torch.from_numpy(img).unsqueeze(0).float()
     print(" img shape: ", img.shape, img.max(), img.min())
@@ -276,17 +288,20 @@ if __name__ == "__main__":
     rand_x = torch.randint(0, image_size + 1, (batch_size,)).long()
     print("rand_x shape:", rand_x.shape, rand_x)
 
+    img = img * 2 - 1  #
+
     masked_img = []
 
     for m in masks:
         m = m.unsqueeze(0)
-        img = apply_ksu_kernel(img, m, pixel_range='0_1', )
+        img = apply_ksu_kernel(img, m, pixel_range='-1_1', )
         masked_img.append(img)
         print("-- k shape: ", m.shape)
         print("-- img shape: ", img.shape)
 
     masks = np.concatenate(masks, axis=-1)[0]
     masked_img = (torch.concat(masked_img, dim=-1).numpy() + 1) * 0.5
+
     masked_img = np.transpose(masked_img, (0, 2, 3, 1))[0, ..., 0]
     # masked_img = cv2.cvtColor(masked_img, cv2.COLOR_RGB2GRAY)
 
@@ -296,23 +311,25 @@ if __name__ == "__main__":
     img = np.concatenate([masks, masked_img], axis=0)
 
     plt.figure(figsize=(100, 10))
-    plt.imshow(img)      # (1, 128, 1280)
+    plt.imshow(img, cmap='gray')      # (1, 128, 1280)
     plt.show()
 
     print("Second stage...")
 
+
+    # Second STEP
     import matplotlib.pyplot as plt
     import numpy as np
 
     image_size = 128
     batch_size = 1
-    t = 50
+    t = 3
     kspace_kernels = get_ksu_kernel(t, image_size)   # 2 *
     kspace_kernels = torch.stack(kspace_kernels).squeeze(1)
 
     img = plt.imread(
         "/Users/haochen/Documents/GitHub/DiffDecomp/Cold-Diffusion/generation-diffusion-pytorch/defading_diffusion_pytorch/assets/img.png")
-    img = cv2.resize(img, (128, 128))
+    img = cv2.resize(img, (image_size, image_size))
 
     img = np.transpose(img, (2, 0, 1))
     img = img[0]
@@ -360,6 +377,6 @@ if __name__ == "__main__":
     img = np.concatenate([masks, masked_img], axis=0)
 
     plt.figure(figsize=(100, 10))
-    plt.imshow(img)  # (1, 128, 1280)
+    plt.imshow(img, cmap='gray')  # (1, 128, 1280)
     plt.show()
 
