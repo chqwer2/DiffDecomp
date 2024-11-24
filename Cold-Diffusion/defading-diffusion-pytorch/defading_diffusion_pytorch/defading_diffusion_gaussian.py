@@ -338,6 +338,7 @@ class GaussianDiffusion(nn.Module):
 
 
                         with torch.no_grad():
+
                             kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels).cuda()
                             kt       = self.get_kspace_kernels(t - 1, rand_kernels).cuda()  # last one
                             k_residual = kt_sub_1 - kt
@@ -351,7 +352,9 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
-                    all_masks.append(k_residual)
+                    all_masks.append(kt_sub_1)
+
+
                     if self.clamp_every_sample:
                         faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
