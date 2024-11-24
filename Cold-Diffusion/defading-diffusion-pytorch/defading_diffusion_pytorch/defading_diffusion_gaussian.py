@@ -208,7 +208,7 @@ class GaussianDiffusion(nn.Module):
             rand_kernels = torch.stack(rand_kernels)
 
         print("rand_kernels shape: ", rand_kernels.shape)
-        print("self.fade_kernels shape: ", self.fade_kernels.shape)
+        print("self.kspace_kernels shape: ", self.kspace_kernels.shape)
 
         if t is None:
             t = self.num_timesteps
