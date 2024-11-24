@@ -150,7 +150,7 @@ class GaussianDiffusion(nn.Module):
         self.use_fre_loss = True
         self.update_kernel = False
         self.use_lpips = True
-        self.clamp_every_sample = True # Stride
+        self.clamp_every_sample = False # Stride
         self.use_fre_noise = True
 
     # if _MRIDOWN == "4X":
@@ -161,7 +161,9 @@ class GaussianDiffusion(nn.Module):
     # ff = create_mask_for_mask_type(mask_type_str, [center_fraction], [MRIDOWN]) ## 0.2 fo
 
     def get_new_kspace(self):
-        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size)
+        # LinearSamplingRate, LogSamplingRate
+        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size, ksu_routine="LinearSamplingRate")
+
         self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
 
 
@@ -198,8 +200,7 @@ class GaussianDiffusion(nn.Module):
 
             for i in range(batch_size ):
                 rand_kernels.append(torch.stack(
-                    [self.kspace_kernels[j][:self.image_size,
-                     : self.image_size] for j in range(len(self.kspace_kernels))]))
+                    [self.kspace_kernels[j] for j in range(len(self.kspace_kernels))]))
 
             rand_kernels = torch.stack(rand_kernels)
 
@@ -237,7 +238,6 @@ class GaussianDiffusion(nn.Module):
         direct_recons = None
         recon_sample = None
         all_recons = []
-        all_masks = []
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
