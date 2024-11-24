@@ -81,7 +81,7 @@ def get_mask_func(mask_method, af, cf):
 
 
 
-
+use_fix_center_ratio = True
 
 
 # af (Acceleration Factor), cf (Center Fraction)
@@ -130,8 +130,9 @@ def get_ksu_kernel(timesteps, image_size,
         for sr in sr_list:
             af = 1 / sr  # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
-            cf = 0.1
-            print("af, cf = ", af, cf)
+            if use_fix_center_ratio:
+                cf = 0.1
+            # print("af, cf = ", af, cf)
 
             masks.append(get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
@@ -147,8 +148,9 @@ def get_ksu_kernel(timesteps, image_size,
         for sr in sr_list:
             af = 1 / sr
             cf = sr * 0.32
-            cf = 0.1
-            print("af, cf = ", af, cf)
+            if use_fix_center_ratio:
+                cf = 0.1
+            # print("af, cf = ", af, cf)
 
             masks.append(get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
 
