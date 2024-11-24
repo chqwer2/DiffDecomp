@@ -171,7 +171,7 @@ class high_fre_mask:
         if (H, W) in self.mask_cache:
             return self.mask_cache[(H, W)]
         center_x, center_y = H // 2, W // 2
-        radius = 30  # 影响的频率范围半径
+        radius = H//8  # 影响的频率范围半径
 
         high_freq_mask = torch.ones(H, W)
         for i in range(H):
@@ -205,7 +205,7 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
         # fft = fft * mask
         # fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask * (1 - mask)
-        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude
+        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask
         fft_noisy_magnitude = torch.clamp(fft_noisy_magnitude, min=0.0)
 
         fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)
