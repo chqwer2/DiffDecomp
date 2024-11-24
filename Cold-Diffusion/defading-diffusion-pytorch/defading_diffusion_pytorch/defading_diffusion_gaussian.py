@@ -354,7 +354,7 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
-                    k_known_mask += k_residual
+                    k_known_mask += k_residual.cuda()
                     all_masks.append(k_known_mask)
 
 
