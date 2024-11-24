@@ -39,10 +39,12 @@ import numpy as np
 # Kspace kernels
 # ---------------------------
 from torch.fft import *
+
 # Cartesian Mask Support
 try:
     from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
 except:
+    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
     from ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
 
 # Gaussain 2D Mask Support
