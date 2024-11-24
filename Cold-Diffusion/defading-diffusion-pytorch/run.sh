@@ -23,10 +23,9 @@ num_channels=1
 
 diffusion_type=twobranch_fade    # unet | twobranch
 diffusion_type=twobranch_kspace
-diffusion_type=unet_kspace
 
-
-diffusion_type=twounet_kspace
+#diffusion_type=unet_kspace
+#diffusion_type=twounet_kspace
 
 # diffusion_type=unet_fade    # unet | twobranch
 
@@ -34,12 +33,12 @@ diffusion_type=twounet_kspace
 time_step=50
 image_size=64
 sampling_routine=x0_step_down #_fre  # x0_step_down_fre # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
-loss_type=l1   #  l2 1     # l2 | l1 | l2_l1
+loss_type=l2   #  l2 1     # l2 | l1 | l2_l1
 
 
-tag=l1_fre_noise    # x0_step_down | x0_step_down_fre
+tag=l2_fre_noise    # x0_step_down | x0_step_down_fre
 
-deviceid=0
+deviceid=1
 # fre_before_attn + l1
 train_bs=12   # 4 | 32 | 24
 

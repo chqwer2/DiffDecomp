@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from einops import rearrange
 from torch.fft import *
 
-
 def frequency_transform(x_input, pixel_range='-1_1', to_frequency=True):
     if to_frequency:
         if pixel_range == '0_1':
@@ -108,6 +107,7 @@ class InvUpSampler(nn.Sequential):
         super(InvUpSampler, self).__init__(*m)
 
 
+
 class AdaptiveNorm(nn.Module):
     def __init__(self, n):
         super(AdaptiveNorm, self).__init__()
@@ -115,19 +115,28 @@ class AdaptiveNorm(nn.Module):
         self.w_0 = nn.Parameter(torch.Tensor([1.0]))
         self.w_1 = nn.Parameter(torch.Tensor([0.0]))
 
-        self.bn = nn.BatchNorm2d(n, momentum=0.999, eps=0.001)
+        self.bn  = nn.BatchNorm2d(n, momentum=0.999, eps=0.001)
 
     def forward(self, x):
         return self.w_0 * x + self.w_1 * self.bn(x)
 
 
+def nonlinearity(x):
+    # swish
+    return x*torch.sigmoid(x)
+
 class ConvBNReLU2D(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1,
-                 bias=False, act=None, norm=None):
+                 bias=False, act=None, norm=None, temb_ch=None):
         super(ConvBNReLU2D, self).__init__()
 
         self.layers = torch.nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
                                       stride=stride, padding=padding, dilation=dilation, groups=groups, bias=bias)
+
+        self.temb_proj = torch.nn.Linear(temb_ch,
+                                         out_channels)
+
+
         self.act = None
         self.norm = None
         if norm == 'BN':
@@ -158,9 +167,11 @@ class ConvBNReLU2D(torch.nn.Module):
         elif act == 'SoftMax':
             self.act = torch.nn.Softmax2d()
 
-    def forward(self, inputs):
+    def forward(self, inputs, temp=None):
 
         out = self.layers(inputs)
+
+        out = out + self.temb_proj(nonlinearity(out))[:, :, None, None]
 
         if self.norm is not None:
             out = self.norm(out)
@@ -186,18 +197,14 @@ class DownSample(nn.Module):
         super(DownSample, self).__init__()
         if scale == 1:
             self.layers = nn.Sequential(
-                ConvBNReLU2D(in_channels=num_features, out_channels=num_features, kernel_size=3, act=act, norm=norm,
-                             padding=1),
-                ConvBNReLU2D(in_channels=num_features * scale * scale, out_channels=num_features, kernel_size=1,
-                             act=act, norm=norm)
+                ConvBNReLU2D(in_channels=num_features, out_channels=num_features, kernel_size=3, act=act, norm=norm, padding=1),
+                ConvBNReLU2D(in_channels=num_features * scale * scale, out_channels=num_features, kernel_size=1, act=act, norm=norm)
             )
         else:
             self.layers = nn.Sequential(
-                ConvBNReLU2D(in_channels=num_features, out_channels=num_features, kernel_size=3, act=act, norm=norm,
-                             padding=1),
+                ConvBNReLU2D(in_channels=num_features, out_channels=num_features, kernel_size=3, act=act, norm=norm, padding=1),
                 invPixelShuffle(ratio=scale),
-                ConvBNReLU2D(in_channels=num_features * scale * scale, out_channels=num_features, kernel_size=1,
-                             act=act, norm=norm)
+                ConvBNReLU2D(in_channels=num_features * scale * scale, out_channels=num_features, kernel_size=1, act=act, norm=norm)
             )
 
     def forward(self, inputs):
@@ -205,18 +212,22 @@ class DownSample(nn.Module):
 
 
 class ResidualGroup(nn.Module):
-    def __init__(self, n_feat, kernel_size, reduction, act, norm, n_resblocks):
+    def __init__(self, n_feat, kernel_size, reduction, act,norm, n_resblocks, temb_ch=None):
         super(ResidualGroup, self).__init__()
         modules_body = [
             ResBlock(n_feat) for _ in range(n_resblocks)]
 
-        modules_body.append(ConvBNReLU2D(n_feat, n_feat, kernel_size, padding=1, act=act, norm=norm))
+        modules_body.append(ConvBNReLU2D(n_feat, n_feat, kernel_size, padding=1, act=act, norm=norm, temb_ch=temb_ch))
         self.body = nn.Sequential(*modules_body)
         self.re_scale = Scale(1)
+        # self.temb_proj = torch.nn.Linear(temb_ch,
+        #                                  n_feat)
+
 
     def forward(self, x):
         res = self.body(x)
         return res + self.re_scale(x)
+
 
 
 class FreBlock9(nn.Module):
@@ -230,10 +241,11 @@ class FreBlock9(nn.Module):
                                       nn.Conv2d(channels, channels, 3, 1, 1))
         self.post = nn.Conv2d(channels, channels, 1, 1, 0)
 
+
     def forward(self, x):
         # print("x: ", x.shape)
         _, _, H, W = x.shape
-        msF = torch.fft.rfft2(self.fpre(x) + 1e-8, norm='backward')
+        msF = torch.fft.rfft2(self.fpre(x)+1e-8, norm='backward')
 
         msF_amp = torch.abs(msF)
         msF_pha = torch.angle(msF)
@@ -244,16 +256,15 @@ class FreBlock9(nn.Module):
         pha_fuse = self.pha_fuse(msF_pha)
         pha_fuse = pha_fuse + msF_pha
 
-        real = amp_fuse * torch.cos(pha_fuse) + 1e-8
-        imag = amp_fuse * torch.sin(pha_fuse) + 1e-8
-        out = torch.complex(real, imag) + 1e-8
+        real = amp_fuse * torch.cos(pha_fuse)+1e-8
+        imag = amp_fuse * torch.sin(pha_fuse)+1e-8
+        out = torch.complex(real, imag)+1e-8
         out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='backward'))
         out = self.post(out)
         out = out + x
         out = torch.nan_to_num(out, nan=1e-5, posinf=1e-5, neginf=1e-5)
         # print("out: ", out.shape)
         return out
-
 
 class Attention(nn.Module):
     def __init__(self, dim=64, num_heads=8, bias=False):
@@ -263,7 +274,7 @@ class Attention(nn.Module):
 
         self.kv = nn.Conv2d(dim, dim * 2, kernel_size=1, bias=bias)
         self.kv_dwconv = nn.Conv2d(dim * 2, dim * 2, kernel_size=3, stride=1, padding=1, groups=dim * 2, bias=bias)
-        self.q = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
+        self.q = nn.Conv2d(dim, dim , kernel_size=1, bias=bias)
         self.q_dwconv = nn.Conv2d(dim, dim, kernel_size=3, stride=1, padding=1, groups=dim, bias=bias)
         self.project_out = nn.Conv2d(dim, dim, kernel_size=1, bias=bias)
 
@@ -291,7 +302,6 @@ class Attention(nn.Module):
         out = self.project_out(out)
         return out
 
-
 class FuseBlock7(nn.Module):
     def __init__(self, channels):
         super(FuseBlock7, self).__init__()
@@ -299,15 +309,15 @@ class FuseBlock7(nn.Module):
         self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
         self.fre_att = Attention(dim=channels)
         self.spa_att = Attention(dim=channels)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1),
-                                  nn.Conv2d(channels, 2 * channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+
 
     def forward(self, spa, fre):
         ori = spa
         fre = self.fre(fre)
         spa = self.spa(spa)
-        fre = self.fre_att(fre, spa) + fre
-        spa = self.fre_att(spa, fre) + spa
+        fre = self.fre_att(fre, spa)+fre
+        spa = self.fre_att(spa, fre)+spa
         fuse = self.fuse(torch.cat((fre, spa), 1))
         fre_a, spa_a = fuse.chunk(2, dim=1)
         spa = spa_a * spa
@@ -316,15 +326,14 @@ class FuseBlock7(nn.Module):
 
         res = torch.nan_to_num(res, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
-
 
 class FuseBlock6(nn.Module):
     def __init__(self, channels):
         super(FuseBlock6, self).__init__()
         self.fre = nn.Conv2d(channels, channels, 3, 1, 1)
         self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1),
-                                  nn.Conv2d(channels, 2 * channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+
 
     def forward(self, spa, fre):
         fre = self.fre(fre)
@@ -339,13 +348,13 @@ class FuseBlock6(nn.Module):
         res = torch.nan_to_num(res, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
 
-
+    
 class FuseBlock4(nn.Module):
     def __init__(self, channels):
         super(FuseBlock4, self).__init__()
         self.fre = nn.Conv2d(channels, channels, 3, 1, 1)
         self.spa = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, spa, fre):
         fre = self.fre(fre)
@@ -355,13 +364,12 @@ class FuseBlock4(nn.Module):
         res = torch.nan_to_num(fuse, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
 
-
 class Modality_FuseBlock4(nn.Module):
     def __init__(self, channels):
         super(FuseBlock4, self).__init__()
         self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
@@ -370,7 +378,6 @@ class Modality_FuseBlock4(nn.Module):
         fuse = self.fuse(torch.cat((t1, t2), 1))
         res = torch.nan_to_num(fuse, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
-
 
 class Modality_FuseBlock7(nn.Module):
     def __init__(self, channels):
@@ -379,14 +386,14 @@ class Modality_FuseBlock7(nn.Module):
         self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.t1_att = Attention(dim=channels)
         self.t2_att = Attention(dim=channels)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1),
-                                  nn.Conv2d(channels, 2 * channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
         t2 = self.t2(t2)
-        t1 = self.t1_att(t1, t2) + t1
-        t2 = self.t2_att(t2, t1) + t2
+        t1 = self.t1_att(t1, t2)+t1
+        t2 = self.t2_att(t2, t1)+t2
         fuse = self.fuse(torch.cat((t1, t2), 1))
         t1_a, t2_a = fuse.chunk(2, dim=1)
         t2 = t2_a * t2
@@ -395,15 +402,14 @@ class Modality_FuseBlock7(nn.Module):
 
         res = torch.nan_to_num(res, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
-
-
+    
 class Modality_FuseBlock6(nn.Module):
     def __init__(self, channels):
         super(Modality_FuseBlock6, self).__init__()
         self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1),
-                                  nn.Conv2d(channels, 2 * channels, 3, 1, 1), nn.Sigmoid())
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, 2*channels, 3, 1, 1), nn.Sigmoid())
+
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
@@ -424,7 +430,7 @@ class Modality_FuseBlock4(nn.Module):
         super(Modality_FuseBlock4, self).__init__()
         self.t1 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.t2 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.fuse = nn.Sequential(nn.Conv2d(2 * channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
+        self.fuse = nn.Sequential(nn.Conv2d(2*channels, channels, 3, 1, 1), nn.Conv2d(channels, channels, 3, 1, 1))
 
     def forward(self, t1, t2):
         t1 = self.t1(t1)
@@ -433,3 +439,4 @@ class Modality_FuseBlock4(nn.Module):
         fuse = self.fuse(torch.cat((t1, t2), 1))
         res = torch.nan_to_num(fuse, nan=1e-5, posinf=1e-5, neginf=1e-5)
         return res
+

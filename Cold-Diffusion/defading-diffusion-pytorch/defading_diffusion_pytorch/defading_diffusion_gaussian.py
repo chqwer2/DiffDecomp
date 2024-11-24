@@ -244,7 +244,7 @@ class GaussianDiffusion(nn.Module):
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
-                recon_sample = recon_sample // 2 + recon_fre // 2
+                recon_sample = recon_sample # // 2 + recon_fre // 2
 
             if direct_recons is None:
                 direct_recons = recon_sample
@@ -424,7 +424,8 @@ class GaussianDiffusion(nn.Module):
 
             elif self.backbone == "twobranch":
                 recon_sample, recon_fre = self.restore_fn(faded_recon_sample, aux, step)
-                recon_sample = recon_sample // 2 + recon_fre // 2
+                recon_sample = recon_sample  #// 2 + recon_fre // 2
+
             x0_list.append(recon_sample)
 
             if self.degradation_type == 'fade':
@@ -588,7 +589,6 @@ class GaussianDiffusion(nn.Module):
             if self.use_fre_loss:  # NAN
                 fft_weight = 0.01
                 amp = self.amploss(x_recon, x_start)
-                # pha = self.phaloss(x_recon, x_start)
 
                 loss += fft_weight * amp
 
@@ -612,12 +612,13 @@ class GaussianDiffusion(nn.Module):
 
                 # print("lpips_loss:", lpips_loss)
 
-            # if self.use_fre_loss:
-            #     fft_weight = 0.01
-            #     amp = self.amploss(x_recon_fre, x_start)
-            #     pha = self.phaloss(x_recon_fre, x_start)
-            #
-            #     loss += fft_weight * amp
+            if self.use_fre_loss:  # NAN
+                fft_weight = 0.01
+                amp_fre = self.amploss(x_recon_fre, x_start)
+                amp = self.amploss(x_recon, x_start)
+                # pha = self.phaloss(x_recon, x_start)
+
+                loss += fft_weight * (amp + amp_fre)
 
         return loss
 
