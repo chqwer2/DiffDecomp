@@ -283,6 +283,7 @@ class GaussianDiffusion(nn.Module):
                 # faded_recon_sample = recon_sample
 
                 if sample_routine == 'default':
+                    all_recons.append(recon_sample)
                     with torch.no_grad():
                         if t >=1:
                             k = self.get_kspace_kernels(t - 1, rand_kernels)
@@ -326,17 +327,16 @@ class GaussianDiffusion(nn.Module):
 
 
                         with torch.no_grad():
-                            kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
-                            kt       = self.get_kspace_kernels(t - 1, rand_kernels)  # last one
+                            kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels).cuda()
+                            kt       = self.get_kspace_kernels(t - 1, rand_kernels).cuda()  # last one
+                            k_residual = kt_sub_1 - kt
+                            recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
 
-                            recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
-                            recon_sample_fre, kt = apply_tofre(recon_sample, kt)
 
-                        k_mask = (kt_sub_1 - kt).cuda()  # Stride
-                        print("k_mask shape: ", k_mask.sum())
+                        fre_amend = recon_sample_fre * k_residual
+                        faded_recon_sample_fre =  faded_recon_sample_fre * kt_sub_1 + \
+                                                  fre_amend * k_residual
 
-                        fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
-                        faded_recon_sample_fre =  faded_recon_sample_fre * kt_sub_1 + fre_amend * k_mask
                         # faded_recon_sample_fre = faded_recon_sample_fre
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
@@ -877,7 +877,7 @@ class Trainer(object):
 
                     lpips = self.lpips(all_images, og_img).mean()
 
-                    print("=== Final Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
+                    print(f"=== Final Metrics {routine}: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
                     img_ = direct_recons.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                     img_ = np.clip(img_, 0, 1)
@@ -887,7 +887,7 @@ class Trainer(object):
 
                     lpips = self.lpips(direct_recons, og_img).mean()
 
-                    print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
+                    print(f"=== first step Metrics {routine}: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
 
                     os.makedirs(self.results_folder, exist_ok=True)
