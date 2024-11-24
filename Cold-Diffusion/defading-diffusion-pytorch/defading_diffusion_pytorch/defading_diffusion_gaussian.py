@@ -344,7 +344,7 @@ class GaussianDiffusion(nn.Module):
                             kt       = self.get_kspace_kernels(t - 1, rand_kernels).cuda()  # last one
                             k_residual = kt_sub_1 - kt
                             recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
-                            print("k_residual = ", k_residual.sum(), t-2, t-1)
+                            print("k_residual = ", k_residual.sum(), t-2, t-1, kt_sub_1.sum(), kt.sum())
 
 
                         fre_amend = recon_sample_fre * k_residual
