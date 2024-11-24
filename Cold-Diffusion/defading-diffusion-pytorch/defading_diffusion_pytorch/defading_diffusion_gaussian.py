@@ -619,7 +619,7 @@ class GaussianDiffusion(nn.Module):
             loss_freq = self.reconstruct_loss(x_start, x_recon_fre)
             loss = loss_spatial + loss_freq
 
-            if np.random.rand() < 0.01:
+            if np.random.rand() < 0.001:
                 print("loss_spatial:", loss_spatial, "loss_freq:", loss_freq)
 
             # LPIPS
@@ -631,7 +631,7 @@ class GaussianDiffusion(nn.Module):
                 # print("lpips_loss:", lpips_loss)
 
             if self.use_fre_loss:  # NAN
-                fft_weight = 0.01
+                fft_weight = 0.1
                 amp_fre = self.amploss(x_recon_fre, x_start)
                 amp = self.amploss(x_recon, x_start)
                 # pha = self.phaloss(x_recon, x_start)
