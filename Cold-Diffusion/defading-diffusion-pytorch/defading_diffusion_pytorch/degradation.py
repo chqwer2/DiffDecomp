@@ -42,10 +42,10 @@ from torch.fft import *
 
 # Cartesian Mask Support
 try:
-    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
+    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
 except:
-    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
-    from ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquispacedMaskFunc
+    from .ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
+    from ksutils import RandomMaskFunc, EquispacedMaskFractionFunc, EquiSpacedMaskFunc
 
 # Gaussain 2D Mask Support
 # from utils.utils_kspace_undersampling import utils_undersampling_pattern, utils_radial_spiral_undersampling
@@ -61,7 +61,7 @@ def get_mask_func(mask_method, af, cf):
     elif mask_method == "random":
         return RandomMaskFunc(cf, af)
     elif mask_method == "equispaced":
-        return EquispacedMaskFunc(cf, af)
+        return EquiSpacedMaskFunc(cf, af)
     
     
     
