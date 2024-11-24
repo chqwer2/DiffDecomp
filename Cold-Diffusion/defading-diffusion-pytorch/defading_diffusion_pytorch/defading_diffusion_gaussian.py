@@ -207,6 +207,9 @@ class GaussianDiffusion(nn.Module):
 
             rand_kernels = torch.stack(rand_kernels)
 
+        print("rand_kernels shape: ", rand_kernels.shape)
+        print("self.fade_kernels shape: ", self.fade_kernels.shape)
+
         if t is None:
             t = self.num_timesteps
 
@@ -241,6 +244,7 @@ class GaussianDiffusion(nn.Module):
         direct_recons = None
         recon_sample = None
         all_recons = []
+        all_masks  = []
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
@@ -292,6 +296,7 @@ class GaussianDiffusion(nn.Module):
                             k = self.get_kspace_kernels(t - 1, rand_kernels)
                             recon_sample = apply_ksu_kernel(recon_sample, k)
 
+                    all_masks.append(k)
                     faded_recon_sample = recon_sample
 
 
@@ -307,6 +312,7 @@ class GaussianDiffusion(nn.Module):
 
                         else:
                             faded_recon_sample = recon_sample
+                        all_masks.append(k)
                     else:
                         with torch.no_grad():
                             k = self.get_kspace_kernels(t - 2, rand_kernels)
@@ -318,12 +324,14 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
                         if self.clamp_every_sample:
                             faded_recon_sample = faded_recon_sample.clamp(-1, 1)
+                        all_masks.append(k)
+
 
                 elif sample_routine == 'x0_step_down_fre':
                     all_recons.append(recon_sample)
                     if t <= 1:
                         faded_recon_sample = recon_sample
-
+                        all_masks.append(kt_sub_1)
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
                         faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
@@ -343,7 +351,7 @@ class GaussianDiffusion(nn.Module):
                         faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
 
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
-
+                    all_masks.append(k_residual)
                     if self.clamp_every_sample:
                         faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
@@ -359,9 +367,10 @@ class GaussianDiffusion(nn.Module):
             t -= 1
 
         all_recons = torch.stack(all_recons)
+        all_masks  = torch.stack(all_masks)
         # print("all_recons shape: ", all_recons.shape)
 
-        return xt, direct_recons, recon_sample, return_k, all_recons
+        return xt, direct_recons, recon_sample, return_k, all_recons, all_masks
 
     @torch.no_grad()
     def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
@@ -845,7 +854,7 @@ class Trainer(object):
                     aux = data_dict['aux'].cuda()
 
                     # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                    xt, direct_recons, all_images, return_k, all_recons = (
+                    xt, direct_recons, all_images, return_k, all_recons, all_masks = (
                                                      self.ema_model.module.sample(
                                                      batch_size=batches,
                                                      faded_recon_sample=og_img,
@@ -917,6 +926,9 @@ class Trainer(object):
                     # Ensure all_recons is on the CPU
                     all_recons = all_recons.cpu()
                     all_recons = torch.cat(list(all_recons), dim=-1)
+                    all_masks = all_masks.cpu()
+                    all_masks = torch.cat(list(all_masks), dim=-1)
+
 
                     s = all_recons.shape[-2]
                     repeats = all_recons.shape[3] // og_img.shape[3]  # Calculate repeat factor
@@ -932,7 +944,8 @@ class Trainer(object):
 
                     utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons-{routine}.png'),
                                      nrow=1)
-
+                    utils.save_image(all_masks, str(self.results_folder / f'{self.step}-all_masks-{routine}.png'),
+                                        nrow=1)
 
                     acc_loss = acc_loss / (self.save_and_sample_every + 1)
                     print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))
