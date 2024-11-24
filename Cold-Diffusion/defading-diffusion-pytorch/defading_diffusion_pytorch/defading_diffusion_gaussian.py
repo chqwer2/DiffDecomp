@@ -573,7 +573,7 @@ class GaussianDiffusion(nn.Module):
         self.debug_print = False
 
         # Add some Gaussian
-        sigma = torch.rand(1).item() * 0.1
+        sigma = torch.rand(1).item() * 0.2
 
         x_start_noisy = x_start + torch.randn_like(x_start) * sigma
         x_mix, k = self.q_sample(x_start=x_start_noisy, t=t)
