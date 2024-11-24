@@ -245,7 +245,7 @@ class GaussianDiffusion(nn.Module):
         recon_sample = None
         all_recons = []
         all_masks  = []
-        k_known_mask =  self.get_kspace_kernels(0, rand_kernels)
+        k_known_mask =  self.get_kspace_kernels(-1, rand_kernels)
 
         while t:
             step = torch.full((batch_size,), t - 1, dtype=torch.long).cuda()
