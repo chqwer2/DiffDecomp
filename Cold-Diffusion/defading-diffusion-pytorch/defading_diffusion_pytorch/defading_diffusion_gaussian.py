@@ -162,7 +162,7 @@ class GaussianDiffusion(nn.Module):
 
     def get_new_kspace(self):
         # LinearSamplingRate, LogSamplingRate
-        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size, ksu_routine="LinearSamplingRate")
+        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size, ksu_routine="LogSamplingRate")
 
         self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
 

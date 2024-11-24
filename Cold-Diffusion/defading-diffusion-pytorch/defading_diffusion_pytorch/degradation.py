@@ -140,19 +140,49 @@ def get_ksu_kernel(timesteps, image_size,
         # Generate the sampling rate list with torch.logspace, reversed, and skip the first element
         sr_list = torch.logspace(start=-torch.log10(torch.tensor(accelerated_factor)),
                                  end=0, steps=timesteps + 1).flip(0)
-        # start=-2
 
         # print("sr_list length: ", sr_list.shape, sr_list)
         sr_list = sr_list #  accelerated_factor
 
-        for sr in sr_list:
+        af = 1 / sr_list[0]
+        cf = sr_list[0] * 0.32
+        if use_fix_center_ratio:
+            cf = 0.1
+
+        # Full
+        cache_mask = get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe)
+        masks.append(cache_mask)
+
+        print("cache_mask shape: ", cache_mask.shape)
+        for sr in sr_list[1:]:
             af = 1 / sr
             cf = sr * 0.32
             if use_fix_center_ratio:
                 cf = 0.1
-            # print("af, cf = ", af, cf)
 
-            masks.append(get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe))
+            H, W = cache_mask.shape[1], cache_mask.shape[2]
+            new_mask = cache_mask.clone()
+
+            # Add additional lines to the mask based on new acceleration factor
+            total_lines = H
+            sampled_lines = int(total_lines * af)
+            existing_lines = new_mask.squeeze(0).sum(dim=1).nonzero(as_tuple=True)[0].tolist()
+            remaining_lines = [i for i in range(total_lines) if i not in existing_lines]
+
+            if sampled_lines > len(existing_lines):
+                additional_lines = sampled_lines - len(existing_lines)
+                sampled_indices = np.random.choice(remaining_lines, additional_lines, replace=False)
+                new_mask[:, sampled_indices, :] = 0.0
+
+
+            cache_mask = new_mask
+            masks.append(cache_mask)
+
+            print("cache_mask shape: ", cache_mask.sum())
+
+
+
+
 
     elif mask_method == 'gaussian_2d':
         raise NotImplementedError("Gaussian 2D mask type is not implemented.")
@@ -183,11 +213,12 @@ class high_fre_mask:
 
 high_fre_mask_cls = high_fre_mask()
 
+
+
 def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
     fft, mask = apply_tofre(x_start, mask, pixel_range)
 
 
-    # try:
     # Use the high frequency mask to add noise
     if use_fre_noise:
         fft_magnitude = torch.abs(fft)  # 幅度
