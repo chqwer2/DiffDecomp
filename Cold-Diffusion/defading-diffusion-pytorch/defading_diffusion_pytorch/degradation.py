@@ -171,7 +171,7 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
 
     # try:
-
+    # Use the high frequency mask to add noise
     if use_fre_noise:
         fft = torch.fft.fftshift(fft)  # 将低频分量移到中心
 
@@ -183,7 +183,8 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
         high_freq_mask = high_fre_mask_cls(H, W).to(fft.device)
         high_freq_mask = high_freq_mask.unsqueeze(0).unsqueeze(0).repeat(fft.shape[0], 1, 1, 1)
 
-        noise_magnitude = torch.randn_like(fft_magnitude) * 0.1 * fft_magnitude.mean()
+        sigma = torch.randn_like(fft_magnitude) * 0.1
+        noise_magnitude = sigma * fft_magnitude  # fft_magnitude.mean()
 
         # fft = fft * mask
         fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask * (1 - mask)
@@ -192,9 +193,6 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
         fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)
     else:
         fft = fft * mask
-
-    # except:
-    #     print("Error in transforming fft:", fft.shape, mask.shape)
 
 
     x_ksu = apply_to_spatial(fft, pixel_range)
