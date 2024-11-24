@@ -67,27 +67,78 @@ elif 'test' in args.test_type:
 
 print("Img Path is ", img_path)
 
-model = Model(resolution=32,
-              in_channels=3,
-              out_ch=3,
-              ch=128,
-              ch_mult=(1, 2, 2, 2),
-              num_res_blocks=2,
-              attn_resolutions=(16,),
-              dropout=0.1).cuda()
+
+
+image_channels = 1
+
+if model_name == "unet":
+    model = Model(resolution=args.image_size,
+                  in_channels=1,
+                  out_ch=1,
+                  ch=128,
+                  ch_mult=(1, 2, 2, 2),
+                  num_res_blocks=2,
+                  attn_resolutions=(16,),
+                  dropout=0.1).cuda()
+
+elif model_name == "twounet":
+
+    model = TwoBranchNewModel(resolution=args.image_size,
+                  in_channels=1,
+                  out_ch=1,
+                  ch=128,
+                  ch_mult=(1, 2, 2, 2),
+                  num_res_blocks=2,
+                  attn_resolutions=(16,),
+                  dropout=0.1).cuda()
+
+elif model_name == "twobranch":
+    downsample = [4, 4, 4]
+    disc_channels = 64
+    disc_layers = 3
+    discriminator_iter_start = 10000
+    disc_loss_type = "hinge"
+    image_gan_weight = 1.0
+    video_gan_weight = 1.0
+    l1_weight = 4.0
+    gan_feat_weight = 4.0
+    perceptual_weight = 4.0
+    i3d_feat = False
+    restart_thres = 1.0
+    no_random_restart = False
+    norm_type = "group"
+    padding_type = "replicate"
+    num_groups = 32
+
+    base_num_every_group = 2
+    num_features = 64
+    act = "PReLU"
+    num_channels = 1
+
+    model = TwoBranchModel(
+        image_channels,
+        disc_channels, disc_layers, disc_loss_type,
+        gan_feat_weight, image_gan_weight,
+        discriminator_iter_start,
+        perceptual_weight, l1_weight,
+        num_features, act, base_num_every_group, num_channels
+    ).cuda()
+
 
 diffusion = GaussianDiffusion(
+    diffusion_type,
     model,
-    image_size = 32,
-    device_of_kernel = 'cuda',
-    channels = 3,
-    timesteps = args.time_steps,   # number of steps
-    loss_type = 'l1',    # L1 or L2
+    image_size=args.image_size,    # Used to be 32
+    channels=image_channels,
+    device_of_kernel='cuda',
+    timesteps=args.time_steps,
+    loss_type=args.loss_type,  #$'l1',
     kernel_std=args.kernel_std,
     fade_routine=args.fade_routine,
-    sampling_routine = args.sampling_routine,
+    sampling_routine=args.sampling_routine,
     discrete=args.discrete
 ).cuda()
+
 
 trainer = Trainer(
     diffusion,
@@ -102,6 +153,9 @@ trainer = Trainer(
     results_folder = args.save_folder,
     load_path = args.load_path
 )
+
+
+
 
 if args.test_type == 'train_data':
     trainer.test_from_data('train', s_times=args.sample_steps)

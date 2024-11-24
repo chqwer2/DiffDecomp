@@ -173,8 +173,12 @@ class GaussianDiffusion(nn.Module):
         return k
 
     @torch.no_grad()
-    def sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None):
+    def sample(self, batch_size=16, faded_recon_sample=None, aux=None,
+               t=None, sample_routine=None):
         rand_kernels = None
+        if not sample_routine:
+            sample_routine = self.sampling_routine
+
         sample_device = faded_recon_sample.device
         if self.degradation_type == 'fade':
             if 'Random' in self.fade_routine:
@@ -251,7 +255,7 @@ class GaussianDiffusion(nn.Module):
                 # recon_cache   = recon_sample
 
             if self.degradation_type == 'fade':
-                if self.sampling_routine == 'default':
+                if sample_routine == 'default':
                     for i in range(t - 1):
                         with torch.no_grad():
                             if rand_kernels is not None:
@@ -262,7 +266,7 @@ class GaussianDiffusion(nn.Module):
                                 recon_sample = self.fade_kernels[i].to(sample_device) * recon_sample
                     faded_recon_sample = recon_sample
 
-                elif self.sampling_routine == 'x0_step_down':
+                elif sample_routine == 'x0_step_down':
                     for i in range(t):
                         with torch.no_grad():
                             recon_sample_sub_1 = recon_sample
@@ -278,7 +282,7 @@ class GaussianDiffusion(nn.Module):
             elif self.degradation_type == 'kspace':
                 # faded_recon_sample = recon_sample
 
-                if self.sampling_routine == 'default':
+                if sample_routine == 'default':
                     with torch.no_grad():
                         if t >=1:
                             k = self.get_kspace_kernels(t - 1, rand_kernels)
@@ -287,7 +291,7 @@ class GaussianDiffusion(nn.Module):
                     faded_recon_sample = recon_sample
 
 
-                elif self.sampling_routine == 'x0_step_down':
+                elif sample_routine == 'x0_step_down':
                     all_recons.append(recon_sample)
                     if t <= 1:
                         if t == 1:
@@ -311,7 +315,7 @@ class GaussianDiffusion(nn.Module):
                         if self.clamp_every_sample:
                             faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
-                elif self.sampling_routine == 'x0_step_down_fre':
+                elif sample_routine == 'x0_step_down_fre':
                     all_recons.append(recon_sample)
                     if t <= 1:
                         faded_recon_sample = recon_sample
@@ -322,25 +326,20 @@ class GaussianDiffusion(nn.Module):
 
 
                         with torch.no_grad():
-                            if t > 1:
-                                kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
-                            else:
-                                kt_sub_1 = torch.ones_like(k_full).to(sample_device)
-
-                            kt = self.get_kspace_kernels(t - 1, rand_kernels)  # last one
+                            kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels)
+                            kt       = self.get_kspace_kernels(t - 1, rand_kernels)  # last one
 
                             recon_sample_sub_1_fre, kt_sub_1 = apply_tofre(recon_sample, kt_sub_1)
                             recon_sample_fre, kt = apply_tofre(recon_sample, kt)
 
-
-                        # Mask Region...
                         k_mask = (kt_sub_1 - kt).cuda()  # Stride
-                        fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
-                        faded_recon_sample_fre =  faded_recon_sample_fre  + fre_amend
+                        print("k_mask shape: ", k_mask.sum())
 
+                        fre_amend = (recon_sample_sub_1_fre * kt_sub_1 - recon_sample_fre * kt)
+                        faded_recon_sample_fre =  faded_recon_sample_fre * kt_sub_1 + fre_amend * k_mask
+                        # faded_recon_sample_fre = faded_recon_sample_fre
                         faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
 
-                        # Strange black stripe
                     if self.clamp_every_sample:
                         faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
@@ -838,101 +837,102 @@ class Trainer(object):
 
                 og_img = data_dict['img'].cuda()
                 aux = data_dict['aux'].cuda()
+                for routine in ['default', 'x0_step_down', 'x0_step_down_fre']:
 
-                # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                xt, direct_recons, all_images, return_k, all_recons = (
-                                                 self.ema_model.module.sample(
-                                                 batch_size=batches,
-                                                 faded_recon_sample=og_img,
-                                                 aux=aux))
-
-
-                print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
-                print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
-
-                og_img = (og_img + 1) * 0.5
-                aux = (aux + 1) * 0.5
-                all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
-                all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
-                direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
-                xt = (xt + 1) * 0.5
-
-                # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
-              # print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
-                # print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
-                # print("DEBUG - return_k shape: ", return_k.shape, return_k.max(), return_k.min())
-                # print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
-
-                # 24, 1, 128, 128
-                # Calculate SSIM and PSNR, LPIPS
-                from skimage.metrics import structural_similarity as ssim
-                from skimage.metrics import peak_signal_noise_ratio as psnr
-
-                img_ = all_images.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
-                og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
-                img_ = np.clip(img_, 0, 1)
-
-                ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
-
-                lpips = self.lpips(all_images, og_img).mean()
-
-                print("=== Final Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
-
-                img_ = direct_recons.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
-                img_ = np.clip(img_, 0, 1)
-
-                ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
-
-                lpips = self.lpips(direct_recons, og_img).mean()
-
-                print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
+                    # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
+                    xt, direct_recons, all_images, return_k, all_recons = (
+                                                     self.ema_model.module.sample(
+                                                     batch_size=batches,
+                                                     faded_recon_sample=og_img,
+                                                     aux=aux, sample_routine=routine))
 
 
-                os.makedirs(self.results_folder, exist_ok=True)
-                # utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
-                # utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
-                #                  nrow=6)
-                # utils.save_image(direct_recons,
-                #                  str(self.results_folder / f'{self.step}-sample-direct_recons.png'), nrow=6)
-                # utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
-                # utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
+                    print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
+                    print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
 
-                return_k = return_k.cuda()
+                    og_img = (og_img + 1) * 0.5
+                    aux = (aux + 1) * 0.5
+                    all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
+                    all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
+                    direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
+                    xt = (xt + 1) * 0.5
 
-                combine = torch.cat((return_k, xt,
-                                     all_images, direct_recons, og_img, aux), 2)
+                    # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
+                    # print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
+                    # print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
+                    # print("DEBUG - return_k shape: ", return_k.shape, return_k.max(), return_k.min())
+                    # print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
 
-                print("combine shape: ", combine.shape)
-                utils.save_image(combine, str(self.results_folder / f'{self.step}-combine.png'), nrow=6)
-                # all_recons # SHape 50, 24, 1, 128, 128
+                    # 24, 1, 128, 128
+                    # Calculate SSIM and PSNR, LPIPS
+                    from skimage.metrics import structural_similarity as ssim
+                    from skimage.metrics import peak_signal_noise_ratio as psnr
 
-                # all_recon = all_recons[:, 0] # 50, 1, 128, 128
-                # Ensure all_recons is on the CPU
-                all_recons = all_recons.cpu()
-                all_recons = torch.cat(list(all_recons), dim=-1)
+                    img_ = all_images.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                    og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                    img_ = np.clip(img_, 0, 1)
 
-                s = all_recons.shape[-2]
-                repeats = all_recons.shape[3] // og_img.shape[3]  # Calculate repeat factor
-                # tensor_small = tensor_small.repeat(1, 1, 1, repeats)
-                og_img = og_img.cpu()
-                all_recons_residual = all_recons - og_img.repeat(1, 1, 1, repeats)
-                # all_recons[:, :, :, s:]
-                all_recons_residual_2 = all_recons[:, :, :, s:] - all_recons[:, :, :, :-s]
-                padding = torch.zeros_like(all_recons_residual[:, :, :, :s // 2])
-                all_recons_residual_2 = torch.cat([padding, all_recons_residual_2, padding], dim=-1)
+                    ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                    psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
 
-                all_recons = torch.cat([all_recons, all_recons_residual_2, all_recons_residual], dim=-2)
+                    lpips = self.lpips(all_images, og_img).mean()
 
-                utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons.png'),
-                                 nrow=1)
+                    print("=== Final Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
+
+                    img_ = direct_recons.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
+                    img_ = np.clip(img_, 0, 1)
+
+                    ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
+                    psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
+
+                    lpips = self.lpips(direct_recons, og_img).mean()
+
+                    print("=== first step Metrics: SSIM: ", ssim_, " PSNR: ", psnr_, " LPIPS: ", lpips)
 
 
-                acc_loss = acc_loss / (self.save_and_sample_every + 1)
-                print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))
+                    os.makedirs(self.results_folder, exist_ok=True)
+                    # utils.save_image(xt, str(self.results_folder / f'{self.step}-xt-Noise.png'), nrow=6)
+                    # utils.save_image(all_images, str(self.results_folder / f'{self.step}-full_recons.png'),
+                    #                  nrow=6)
+                    # utils.save_image(direct_recons,
+                    #                  str(self.results_folder / f'{self.step}-sample-direct_recons.png'), nrow=6)
+                    # utils.save_image(og_img, str(self.results_folder / f'{self.step}-img.png'), nrow=6)
+                    # utils.save_image(aux, str(self.results_folder / f'{self.step}-aux.png'), nrow=6)
 
-                acc_loss = 0
+                    return_k = return_k.cuda()
+
+                    combine = torch.cat((return_k, xt,
+                                         all_images, direct_recons, og_img, aux), 2)
+
+                    print("combine shape: ", combine.shape)
+                    utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{routine}.png'), nrow=6)
+                    # all_recons # SHape 50, 24, 1, 128, 128
+
+                    # all_recon = all_recons[:, 0] # 50, 1, 128, 128
+                    # Ensure all_recons is on the CPU
+                    all_recons = all_recons.cpu()
+                    all_recons = torch.cat(list(all_recons), dim=-1)
+
+                    s = all_recons.shape[-2]
+                    repeats = all_recons.shape[3] // og_img.shape[3]  # Calculate repeat factor
+                    # tensor_small = tensor_small.repeat(1, 1, 1, repeats)
+                    og_img = og_img.cpu()
+                    all_recons_residual = all_recons - og_img.repeat(1, 1, 1, repeats)
+                    # all_recons[:, :, :, s:]
+                    all_recons_residual_2 = all_recons[:, :, :, s:] - all_recons[:, :, :, :-s]
+                    padding = torch.zeros_like(all_recons_residual[:, :, :, :s // 2])
+                    all_recons_residual_2 = torch.cat([padding, all_recons_residual_2, padding], dim=-1)
+
+                    all_recons = torch.cat([all_recons, all_recons_residual_2, all_recons_residual], dim=-2)
+
+                    utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons-{routine}.png'),
+                                     nrow=1)
+
+
+                    acc_loss = acc_loss / (self.save_and_sample_every + 1)
+                    print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))
+
+                    acc_loss = 0
 
                 self.save()
 

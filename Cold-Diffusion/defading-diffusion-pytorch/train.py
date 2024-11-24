@@ -87,15 +87,9 @@ if args.debug:
     args.train_steps = 100
     args.time_steps = 5
 
+model = None
 
 if model_name == "unet":
-    # model = Unet(            # Used to be Model
-    #     dim=64,
-    #     dim_mults=(1, 2, 4, 8),
-    #     channels=3,
-    #     with_time_emb=not (args.remove_time_embed),
-    #     residual=args.residual
-    # ).cuda()
     model = Model(resolution=args.image_size,
                   in_channels=1,
                   out_ch=1,
