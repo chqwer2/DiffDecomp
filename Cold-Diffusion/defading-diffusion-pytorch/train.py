@@ -187,7 +187,7 @@ trainer = Trainer(
     args.data_path,
     image_size=args.image_size,   # Used to be 32
     train_batch_size=args.train_bs,
-    train_lr=2e-6,    # 2e-5
+    train_lr=2e-5,
     train_num_steps=args.train_steps,
     gradient_accumulate_every=2,
     ema_decay=0.995,

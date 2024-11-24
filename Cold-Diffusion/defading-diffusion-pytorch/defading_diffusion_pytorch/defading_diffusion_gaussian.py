@@ -342,8 +342,13 @@ class GaussianDiffusion(nn.Module):
 
                         # Strange black stripe
                     if self.clamp_every_sample:
-                        faded_recon_sample =faded_recon_sample.clamp(-1, 1)
+                        faded_recon_sample = faded_recon_sample.clamp(-1, 1)
 
+            if self.discrete:
+                faded_recon_sample = (faded_recon_sample + 1) * 0.5
+                faded_recon_sample = (faded_recon_sample * 255)
+                faded_recon_sample = faded_recon_sample.int().float() / 255
+                faded_recon_sample = faded_recon_sample * 2 - 1
 
             recon_sample = faded_recon_sample
 
@@ -351,7 +356,7 @@ class GaussianDiffusion(nn.Module):
             t -= 1
 
         all_recons = torch.stack(all_recons)
-        print("all_recons shape: ", all_recons.shape)
+        # print("all_recons shape: ", all_recons.shape)
 
         return xt, direct_recons, recon_sample, return_k, all_recons
 
@@ -570,10 +575,10 @@ class GaussianDiffusion(nn.Module):
         # Add some Gaussian
         sigma = torch.rand(1).item() * 0.1
 
+        x_start_noisy = x_start + torch.randn_like(x_start) * sigma
+        x_mix, k = self.q_sample(x_start=x_start_noisy, t=t)
 
-        x_mix, k = self.q_sample(x_start=x_start, t=t)
-
-        x_mix = x_mix + torch.randn_like(x_mix) * sigma  # used to add x_start, TODO
+        # x_mix = x_mix + torch.randn_like(x_mix) * sigma  # used to add x_start, TODO
 
 
         if self.debug_print:
@@ -589,13 +594,17 @@ class GaussianDiffusion(nn.Module):
 
             # LPIPS
             if self.use_lpips:
-                lpips_weight = 0.05
+                lpips_weight = 0.1
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
 
+            # self.ssim_loss = True
+            # if self.ssim_loss:
+            #     ssim_weight = 0.1
+            #
 
             if self.use_fre_loss:  # NAN
-                fft_weight = 0.01
+                fft_weight = 0.1
                 amp = self.amploss(x_recon, x_start)
 
                 loss += fft_weight * amp
@@ -831,11 +840,15 @@ class Trainer(object):
                 aux = data_dict['aux'].cuda()
 
                 # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
-                xt, direct_recons, all_images, return_k, all_recons = self.ema_model.module.sample(
+                xt, direct_recons, all_images, return_k, all_recons = (
+                                                 self.ema_model.module.sample(
                                                  batch_size=batches,
                                                  faded_recon_sample=og_img,
-                                                 aux=aux)
+                                                 aux=aux))
 
+
+                print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
+                print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
 
                 og_img = (og_img + 1) * 0.5
                 aux = (aux + 1) * 0.5
@@ -845,9 +858,7 @@ class Trainer(object):
                 xt = (xt + 1) * 0.5
 
                 # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
-                # print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
-                # print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
-                # print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
+              # print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
                 # print("DEBUG - aux shape: ", aux.shape, aux.max(), aux.min())
                 # print("DEBUG - return_k shape: ", return_k.shape, return_k.max(), return_k.min())
                 # print("DEBUG - return_sample shape: ", return_sample.shape, return_sample.max(), return_sample.min())
@@ -862,7 +873,7 @@ class Trainer(object):
                 img_ = np.clip(img_, 0, 1)
 
                 ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr_ = psnr(img_, og_img_, data_range=1).mean()
+                psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
 
                 lpips = self.lpips(all_images, og_img).mean()
 
@@ -872,7 +883,7 @@ class Trainer(object):
                 img_ = np.clip(img_, 0, 1)
 
                 ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                psnr_ = psnr(img_, og_img_, data_range=1).mean()
+                psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
 
                 lpips = self.lpips(direct_recons, og_img).mean()
 
