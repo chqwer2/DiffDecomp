@@ -592,7 +592,7 @@ class GaussianDiffusion(nn.Module):
         gauss = torch.exp(-x ** 2 / (2 * sigma ** 2))
         kernel = gauss[:, None] @ gauss[None, :]
         kernel /= kernel.sum()
-        return kernel
+        return kernel.cuda()
 
     def gaussian_blur(self, input_tensor, kernel_size: int, sigma: float):
         """Applies Gaussian blur to a 4D tensor (N, C, H, W)."""
