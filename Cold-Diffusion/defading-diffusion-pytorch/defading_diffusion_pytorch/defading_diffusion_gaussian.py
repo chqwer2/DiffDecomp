@@ -148,7 +148,7 @@ class GaussianDiffusion(nn.Module):
         self.lpips = LPIPS().eval().cuda()  # .to(self.device, non_blocking=True)
 
         self.use_fre_loss = True
-        self.update_kernel = False
+        self.update_kernel = True
         self.use_lpips = True
         self.clamp_every_sample = True # Stride
         self.use_fre_noise = True
@@ -162,8 +162,8 @@ class GaussianDiffusion(nn.Module):
 
     def get_new_kspace(self):
         # LinearSamplingRate, LogSamplingRate
-        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size, ksu_routine="LogSamplingRate")
-
+        self.kspace_kernels = get_ksu_kernel(self.num_timesteps, self.image_size,
+                                             ksu_routine="LogSamplingRate")
         self.kspace_kernels = torch.stack(self.kspace_kernels).squeeze(1)
 
 

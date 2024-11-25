@@ -62,16 +62,16 @@ def get_albu_transforms(img_size = (192, 192)):
         # Randomly posterize between 2 and 5 bits
         # A.Posterize(num_bits=(4, 6), p=0.5),
         
-        A.OneOf([
-            A.RandomShadow(p=1.0),
-            A.Solarize(p=1.0),
-            A.RandomSunFlare(p=1.0),
-        ], p=0.5),
+        # A.OneOf([
+        #     A.RandomShadow(p=1.0),
+        #     A.Solarize(p=1.0),
+        #     A.RandomSunFlare(p=1.0),
+        # ], p=0.5),
         
         # A.Saturation
         # A.HueSaturationValue(hue_shift_limit=0, sat_shift_limit=0, val_shift_limit=5, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1),
-                                    contrast_limit=(-0.1, 0.1), p=0.5),
+        # A.RandomBrightnessContrast(brightness_limit=(-0.1, 0.1),
+        #                             contrast_limit=(-0.1, 0.1), p=0.5),
         # A.MaskDropout(p=0.5),
         
         A.OneOf([
