@@ -218,7 +218,7 @@ class CrossAttention(nn.Module):
 class FreBlock(nn.Module):
     def __init__(self, channels):
         super(FreBlock, self).__init__()
-        embed_dim = 512
+        embed_dim = 256
         num_heads = 8
 
 
@@ -259,7 +259,6 @@ class FreBlock(nn.Module):
 
         fpre = self.fpre(x)
         msF = torch.fft. rfft2(fpre + 1e-8, norm='ortho')
-        # torchshift = torch.fft.fftshift(msF, dim=[2, 3])
         msF = torch.fft.fftshift(msF, dim=[2, 3])
 
         msF_ori= msF.clone() * k
