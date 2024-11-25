@@ -176,7 +176,7 @@ def get_ksu_kernel(timesteps, image_size,
             cache_mask = new_mask
             masks.append(cache_mask)
 
-            print("cache_mask shape: ", cache_mask.sum())
+            # print("cache_mask shape: ", cache_mask.sum())
 
         # reverse
         masks = masks[::-1]
