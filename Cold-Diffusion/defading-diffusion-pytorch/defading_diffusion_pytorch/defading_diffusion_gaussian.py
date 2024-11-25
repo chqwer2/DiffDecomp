@@ -360,7 +360,7 @@ class GaussianDiffusion(nn.Module):
 
                     k_known_mask += k_residual.cpu()
                     # all_masks.append(kt_sub_1.cpu()) #k_known_mask)
-                    all_masks.append(k_known_mask.cpu())
+                    all_masks.append(k_known_mask.cpu().clone())
 
                     if self.clamp_every_sample:
                         faded_recon_sample = faded_recon_sample.clamp(-1, 1)
