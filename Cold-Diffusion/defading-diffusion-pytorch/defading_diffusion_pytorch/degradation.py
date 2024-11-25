@@ -257,7 +257,7 @@ def apply_tofre(x_start, mask, params_dict=None, pixel_range='mean_std'):
     elif pixel_range == "mean_std":
         mean = params_dict['img_mean']
         std = params_dict['img_std']
-        print("shape of x_start: ", x_start.shape, mean.shape), std.shape)
+        print("shape of x_start: ", x_start.shape, mean.shape(), std.shape())
         x_start = x_start * std + mean
         x_start = (x_start - x_start.min()) / (x_start.max() - x_start.min())
 
