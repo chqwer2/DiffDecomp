@@ -178,7 +178,7 @@ def get_ksu_kernel(timesteps, image_size,
 
             print("cache_mask shape: ", cache_mask.sum())
 
-
+        masks = masks.flip(0)
 
 
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     image_size = 240
 
     masks = get_ksu_kernel(50, image_size,
-                           "LogSamplingRate",)
+                           "LinearSamplingRate") # LogSamplingRate
 
 
     batch_size = 1
