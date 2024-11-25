@@ -16,9 +16,12 @@ datapath=/home/hao/data/medical/Brain/
 # /gamedrive/Datasets/medical/Brain/
 
 dataset=Brain
-domain=BraTS-GLI-T1C     # T1C
-aux_modality=T2F         # T1C, T1N, T2W, T2F
+domain=BraTS-GLI-T2W    # T1C
+aux_modality=T1N        # T1C, T1N, T2W, T2F
 num_channels=1
+
+
+# T1: T1-weighted MRI; T1c: gadolinium-contrast-enhanced T1-weighted MRI;
 
 
 #diffusion_type=twobranch_fade    # unet | twobranch
