@@ -189,19 +189,60 @@ class AttnBlock(nn.Module):
         return x+h_
 
 
+class TransformerBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads, feedforward_dim, dropout=0.1):
+        super(TransformerBlock, self).__init__()
+        self.transformer = nn.TransformerEncoderLayer(
+            d_model=embed_dim,
+            nhead=num_heads,
+            dim_feedforward=feedforward_dim,
+            dropout=dropout,
+            batch_first=True,
+        )
+
+    def forward(self, x):
+        return self.transformer(x)
+
+class CrossAttention(nn.Module):
+    def __init__(self, embed_dim, num_heads):
+        super(CrossAttention, self).__init__()
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
+
+    def forward(self, query, key, value):
+        attn_output, attn_weights = self.attention(query, key, value)
+        return attn_output, attn_weights
+
+
+
 
 class FreBlock(nn.Module):
     def __init__(self, channels):
         super(FreBlock, self).__init__()
+        embed_dim = 512
+        num_heads = 8
+
 
         self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
-        self.amp_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1),
-                                          nn.LeakyReLU(0.1, inplace=True),
-                                      nn.Conv2d(channels, channels, 3, 1, 1))
+        self.amp_fuse = nn.Sequential(
+            TransformerBlock(embed_dim, num_heads, embed_dim),
+            nn.LeakyReLU(0.1, inplace=True))
 
-        self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
-                                      nn.Conv2d(channels, channels, 3, 1, 1))
+        self.pha_fuse = nn.Sequential(
+            TransformerBlock(embed_dim, num_heads, embed_dim)
+        )
+
+        # self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
+        #                               nn.Conv2d(channels, channels, 3, 1, 1))
+
+
+
         self.post = nn.Conv2d(channels, channels, 1, 1, 0)
+
+
+
+        # self.transformer = TransformerBlock(embed_dim, num_heads, feedforward_dim)
+        self.cross_attention = CrossAttention(embed_dim, num_heads)
+        self.cross_attention_2 = CrossAttention(embed_dim, num_heads)
 
 
     def forward(self, x, k=None):
@@ -211,33 +252,52 @@ class FreBlock(nn.Module):
         # rfft2 输出的形状 (半频谱): (rows, cols//2 + 1)
         half_W = W // 2 + 1
         # down-scale
-        k = torch.nn.functional.interpolate(k, size=(H, W), mode='bilinear', align_corners=False).cuda()
+        k = torch.nn.functional.interpolate(k, size=(H, W), mode='bilinear',
+                                            align_corners=False).cuda()
         k = k[...,:half_W]
+
 
         fpre = self.fpre(x)
         msF = torch.fft. rfft2(fpre + 1e-8, norm='ortho')
+        # torchshift = torch.fft.fftshift(msF, dim=[2, 3])
+        msF = torch.fft.fftshift(msF, dim=[2, 3])
+
+        msF_ori= msF * k
+
 
         msF_amp = torch.abs(msF)
         msF_pha = torch.angle(msF)
 
+        batch_size, channels, height, width = msF_amp.shape
+        msF_amp_flatten = msF_amp.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
+        msF_pha_flatten = msF_pha.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
+
         # channels = msF_amp.shape[1]
 
-        # msF_component = torch.concat([msF_amp, msF_pha], dim=1)
-        amp_fuse = self.amp_fuse(msF_amp) # + msF_component
-        pha_fuse = self.pha_fuse(msF_pha) # + msF_component
+        amplitude_features = self.amp_fuse(msF_amp_flatten) # + msF_component
+        angle_features = self.pha_fuse(msF_pha_flatten) # + msF_component
 
-        # amp_fuse = torch.clamp((1-k) * msF_amp_fu + msF_amp, 1e-8)
-        # pha_fuse = (1-k) * msF_pha_fu + msF_pha
+        # cross attention
+        amplitude_features, _ = self.cross_attention(amplitude_features, angle_features, angle_features)
+        angle_features, _ = self.cross_attention_2(angle_features, amplitude_features, amplitude_features)
 
+        amp_fuse = amplitude_features.permute(0, 2, 1).view(batch_size, channels, height, width)
+        pha_fuse = angle_features.permute(0, 2, 1).view(batch_size, channels, height, width)
 
+        amp_fuse = nn.ReLU()(amp_fuse)
         real = amp_fuse * torch.cos(pha_fuse) + 1e-8
         imag = amp_fuse * torch.sin(pha_fuse) + 1e-8
 
         out = torch.complex(real, imag) + 1e-8
+        out = out * (1 - k) + msF_ori
+
+        out = torch.fft.ifftshift(out, dim=[2, 3])
         out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='ortho'))
         out = self.post(out)
-        out = out + x
-        out = torch.nan_to_num(out, nan=1e-5, posinf=1e-5, neginf=1e-5)
+
+
+
+        out = torch.nan_to_num(out, nan=1e-5, posinf=1, neginf=-1)
 
         return out
 
@@ -417,7 +477,7 @@ class Model(nn.Module):
         h = self.spatial.mid.block_2(h, temb)
 
         # if self.use_front_fre or self.use_after_fre:
-        # h = self.spatial.mid_fre(h, k) + h  # NAN??
+        h = self.spatial.mid_fre(h, k) # + h  # NAN??
 
         # spatial upsampling
         for i_level in reversed(range(self.num_resolutions)):
