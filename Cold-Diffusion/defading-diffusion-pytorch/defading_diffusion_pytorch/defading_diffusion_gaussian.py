@@ -622,7 +622,7 @@ class GaussianDiffusion(nn.Module):
         x_mix = self.gaussian_blur(
             x_mix,
             kernel_size=int(torch.randint(1, 5, (1,)).item() * 2 + 1),  # Ensure odd kernel size
-            sigma=torch.abs(torch.randn(1).item() * 1.5)  # Ensure sigma is positive
+            sigma=torch.abs(torch.randn(1) * 1.5) .item() # Ensure sigma is positive
         )
 
         if self.debug_print:
