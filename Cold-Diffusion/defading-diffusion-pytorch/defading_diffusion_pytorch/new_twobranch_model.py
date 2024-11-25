@@ -262,7 +262,7 @@ class FreBlock(nn.Module):
         # torchshift = torch.fft.fftshift(msF, dim=[2, 3])
         msF = torch.fft.fftshift(msF, dim=[2, 3])
 
-        msF_ori= msF * k
+        msF_ori= msF.clone() * k
 
 
         msF_amp = torch.abs(msF)
@@ -271,6 +271,7 @@ class FreBlock(nn.Module):
         batch_size, channels, height, width = msF_amp.shape
         msF_amp_flatten = msF_amp.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
         msF_pha_flatten = msF_pha.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
+        print("msF_amp_flatten shape", msF_amp_flatten.shape)
 
         # channels = msF_amp.shape[1]
 
