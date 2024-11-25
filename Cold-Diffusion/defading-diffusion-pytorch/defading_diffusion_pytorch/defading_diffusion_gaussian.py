@@ -674,7 +674,7 @@ class GaussianDiffusion(nn.Module):
 
             if self.use_fre_loss:  # NAN
                 fft_weight = 0.01
-                amp_fre = self.amploss(x_recon_fre, x_start)
+                amp_fre = self.amploss(x_recon_fre, x_start, k)
                 # amp = self.amploss(x_recon_fre, x_start)
                 # pha = self.phaloss(x_recon, x_start)
 
@@ -913,8 +913,8 @@ class Trainer(object):
                     og_img_ = og_img.cpu().permute(0, 2, 3, 1).numpy()[..., 0]
                     img_ = np.clip(img_, 0, 1)
 
-                    ssim_ = ssim(img_, og_img_, multichannel=False, data_range=1.0).mean()
-                    psnr_ = psnr(img_, og_img_, data_range=1.0).mean()
+                    ssim_ = ssim(og_img_, img_, multichannel=False, data_range=1.0).mean()
+                    psnr_ = psnr(og_img_, img_, data_range=1.0).mean()
 
                     lpips = self.lpips(all_images, og_img).mean()
 

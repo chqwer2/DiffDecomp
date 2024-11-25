@@ -214,7 +214,6 @@ class CrossAttention(nn.Module):
 
 
 
-
 class FreBlock(nn.Module):
     def __init__(self, channels, embed_dim = 256):
         super(FreBlock, self).__init__()
@@ -222,16 +221,27 @@ class FreBlock(nn.Module):
         num_heads = 8
 
         self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
+        self.amp_conv = nn.Sequential(
+            nn.Conv2d(channels, channels, 5, 1, 2),
+            nn.LeakyReLU(0.1, inplace=True)
+        )
+        self.pha_conv = nn.Sequential(
+            nn.Conv2d(channels, channels, 5, 1, 2),
+            nn.LeakyReLU(0.1, inplace=True)
+        )
+
+
         self.amp_fuse = nn.Sequential(
             TransformerBlock(embed_dim, num_heads, embed_dim),
             nn.LeakyReLU(0.1, inplace=True),
-            TransformerBlock(embed_dim, num_heads, embed_dim),
-            nn.ReLU())
+            # TransformerBlock(embed_dim, num_heads, embed_dim),
+            # nn.ReLU()
+        )
 
         self.pha_fuse = nn.Sequential(
             TransformerBlock(embed_dim, num_heads, embed_dim),
             nn.LeakyReLU(0.1, inplace=True),
-            TransformerBlock(embed_dim, num_heads, embed_dim)
+            # TransformerBlock(embed_dim, num_heads, embed_dim)
         )
 
         self.post = nn.Conv2d(channels, channels, 1, 1, 0)
@@ -263,6 +273,10 @@ class FreBlock(nn.Module):
 
         msF_amp = torch.abs(msF)
         msF_pha = torch.angle(msF)
+
+
+        msF_amp = self.amp_conv(msF_amp)
+        msF_pha = self.pha_conv(msF_pha)
 
         batch_size, channels, height, width = msF_amp.shape
         msF_amp_flatten = msF_amp.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)

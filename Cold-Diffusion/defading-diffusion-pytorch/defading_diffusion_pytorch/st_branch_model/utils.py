@@ -196,29 +196,36 @@ def vanilla_d_loss(logits_real, logits_fake):
 
 
 class AMPLoss(nn.Module):
-    def __init__(self, epsilon=1e-8, norm='ortho'):
+    def __init__(self, epsilon=1e-8, loss="l2", norm='ortho'):
         super(AMPLoss, self).__init__()
-        self.cri = nn.L1Loss()
+        if loss == "l1":
+            self.cri = nn.L1Loss(reduction="sum")
+        else:
+            self.cri = nn.MSELoss(reduction="sum")
+
         self.epsilon = epsilon  # To prevent division by zero
         self.norm = norm  # Normalization for FFT
 
-    def forward(self, x, y):
+    def forward(self, x, y, k):
         # Validate inputs
         # if not torch.isfinite(x).all() or not torch.isfinite(y).all():
         #     raise ValueError("Input contains NaN or Inf values")
+        k = k.to(x.device)
+
 
         # Perform FFT and compute magnitudes
         x_fft = torch.fft.rfft2(x, norm=self.norm)
         y_fft = torch.fft.rfft2(y, norm=self.norm)
 
-        x_mag = torch.clamp(torch.abs(x_fft), min=self.epsilon)  # Clamp to avoid zeros
-        y_mag = torch.clamp(torch.abs(y_fft), min=self.epsilon)  # Clamp to avoid zeros
+        x_mag = torch.clamp(torch.abs(x_fft), min=self.epsilon) * k # Clamp to avoid zeros
+        y_mag = torch.clamp(torch.abs(y_fft), min=self.epsilon) * k # Clamp to avoid zeros
 
-        x_phase = torch.angle(x_fft)
-        y_phase = torch.angle(y_fft)
+        x_phase = torch.angle(x_fft) * k
+        y_phase = torch.angle(y_fft) * k
+        k_total = torch.sum(k)
 
         # Compute L1 loss between magnitudes
-        return self.cri(x_mag, y_mag) + self.cri(x_phase, y_phase)
+        return self.cri(x_mag, y_mag)/k_total + self.cri(x_phase, y_phase)/k_total
 
 
 class PhaLoss(nn.Module):
