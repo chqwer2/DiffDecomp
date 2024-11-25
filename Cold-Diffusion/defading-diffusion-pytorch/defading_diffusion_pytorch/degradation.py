@@ -126,7 +126,7 @@ def get_ksu_kernel(timesteps, image_size,
         # Generate the sampling rate list with torch.linspace, reversed, and skip the first element
         sr_list = torch.linspace(start=1/accelerated_factor, end=1, steps=timesteps + 1).flip(0)
         # Start from 0.01
-        print("sr_list length: ", sr_list.shape, sr_list)
+        # print("sr_list length: ", sr_list.shape, sr_list)
         for sr in sr_list:
             af = 1 / sr  # * accelerated_factor           # acceleration factor
             cf = sr * 0.32
@@ -143,7 +143,7 @@ def get_ksu_kernel(timesteps, image_size,
 
         # print("sr_list length: ", sr_list.shape, sr_list)
         # sr_list = sr_list #  accelerated_factor
-        print("sr_list length: ", sr_list.shape, sr_list)
+        # print("sr_list length: ", sr_list.shape, sr_list)
 
         af = 1 / sr_list[-1]
         cf = 0.1 if use_fix_center_ratio else sr_list[0] * 0.32
