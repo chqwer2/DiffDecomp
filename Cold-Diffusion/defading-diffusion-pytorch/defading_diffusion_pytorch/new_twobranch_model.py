@@ -221,23 +221,20 @@ class FreBlock(nn.Module):
 
         num_heads = 8
 
-
         self.fpre = nn.Conv2d(channels, channels, 1, 1, 0)
         self.amp_fuse = nn.Sequential(
             TransformerBlock(embed_dim, num_heads, embed_dim),
-            nn.LeakyReLU(0.1, inplace=True))
+            nn.LeakyReLU(0.1, inplace=True),
+            TransformerBlock(embed_dim, num_heads, embed_dim),
+            nn.ReLU())
 
         self.pha_fuse = nn.Sequential(
+            TransformerBlock(embed_dim, num_heads, embed_dim),
+            nn.LeakyReLU(0.1, inplace=True),
             TransformerBlock(embed_dim, num_heads, embed_dim)
         )
 
-        # self.pha_fuse = nn.Sequential(nn.Conv2d(channels, channels, 3, 1, 1), nn.LeakyReLU(0.1, inplace=True),
-        #                               nn.Conv2d(channels, channels, 3, 1, 1))
-
-
-
         self.post = nn.Conv2d(channels, channels, 1, 1, 0)
-
 
 
         # self.transformer = TransformerBlock(embed_dim, num_heads, feedforward_dim)
