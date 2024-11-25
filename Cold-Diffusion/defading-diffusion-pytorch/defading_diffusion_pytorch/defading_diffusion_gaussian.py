@@ -148,7 +148,7 @@ class GaussianDiffusion(nn.Module):
         self.lpips = LPIPS().eval().cuda()  # .to(self.device, non_blocking=True)
 
         self.use_fre_loss = True
-        self.update_kernel = True
+        self.update_kernel = False
         self.use_lpips = True
         self.clamp_every_sample = True # Stride
         self.use_fre_noise = True
@@ -197,8 +197,8 @@ class GaussianDiffusion(nn.Module):
                 rand_kernels = torch.stack(rand_kernels)
 
         elif self.degradation_type == 'kspace':
-            if self.update_kernel:
-                self.get_new_kspace()
+            # if self.update_kernel:
+            #     self.get_new_kspace()
             rand_kernels = []
 
             for i in range(batch_size ):
