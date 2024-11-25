@@ -36,11 +36,11 @@ sampling_routine=x0_step_down_fre  # x0_step_down_fre # x0_step_down_fre  # defa
 loss_type=l1   #  l2 1     # l2 | l1 | l2_l1, l1 is better
 
 
-tag=add_blur_strong_albu   # x0_step_down | x0_step_down_fre
+tag=add_blur_transformer   # x0_step_down | x0_step_down_fre
 
 deviceid=0
 # fre_before_attn + l1
-train_bs=12   # 4 | 32 | 24
+train_bs=24   # 4 | 32 | 24
 
 
 save_folder=./results/$diffusion_type_$sampling_routine
@@ -48,6 +48,8 @@ save_folder=./results/$diffusion_type_$sampling_routine
 
 datapath=/home/hao/data/medical/Brain/
 datapath=/gamedrive/Datasets/medical/Brain/brats/Processed/
+
+
 
 
 

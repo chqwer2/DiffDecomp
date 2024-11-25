@@ -270,14 +270,13 @@ class FreBlock(nn.Module):
         # print("msF_amp_flatten shape", msF_amp_flatten.shape)
 
         # channels = msF_amp.shape[1]
+        msF_amp_flatten, _ = self.cross_attention( msF_amp_flatten, msF_pha_flatten, msF_pha_flatten)
+        msF_pha_flatten, _ = self.cross_attention_2(msF_pha_flatten, msF_amp_flatten, msF_amp_flatten)
 
         amplitude_features = self.amp_fuse(msF_amp_flatten) # + msF_component
         angle_features = self.pha_fuse(msF_pha_flatten) # + msF_component
 
         # cross attention
-        amplitude_features, _ = self.cross_attention(amplitude_features, angle_features, angle_features)
-        angle_features, _ = self.cross_attention_2(angle_features, amplitude_features, amplitude_features)
-
         amp_fuse = amplitude_features.permute(0, 2, 1).view(batch_size, channels, height, width)
         pha_fuse = angle_features.permute(0, 2, 1).view(batch_size, channels, height, width)
 
