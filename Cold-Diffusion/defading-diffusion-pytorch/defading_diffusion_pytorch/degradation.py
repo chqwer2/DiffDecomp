@@ -142,7 +142,8 @@ def get_ksu_kernel(timesteps, image_size,
                                  end=0, steps=timesteps + 1).flip(0)
 
         # print("sr_list length: ", sr_list.shape, sr_list)
-        sr_list = sr_list #  accelerated_factor
+        # sr_list = sr_list #  accelerated_factor
+        print("sr_list length: ", sr_list.shape, sr_list)
 
         af = 1 / sr_list[-1]
         cf = 0.1 if use_fix_center_ratio else sr_list[0] * 0.32
@@ -153,8 +154,7 @@ def get_ksu_kernel(timesteps, image_size,
         cache_mask = get_ksu_mask(mask_method, af, cf, pe=ksu_mask_pe, fe=ksu_mask_fe)
         masks.append(cache_mask)
 
-        sr_list = sr_list[:-1]
-        sr_list = sr_list.flip(0)
+        sr_list = sr_list[:-1].flip(0)  # Flip?
 
         for sr in sr_list:
             af = 1 / sr
@@ -180,7 +180,6 @@ def get_ksu_kernel(timesteps, image_size,
 
         # reverse
         masks = masks[::-1]
-
 
 
     elif mask_method == 'gaussian_2d':
@@ -355,8 +354,8 @@ if __name__ == "__main__":
 
     image_size = 64
     batch_size = 1
-    t = 3
-    kspace_kernels = get_ksu_kernel(t, image_size)   # 2 *
+    t = 10
+    kspace_kernels = get_ksu_kernel(t, image_size, ksu_routine="LogSamplingRate")   # 2 *
     kspace_kernels = torch.stack(kspace_kernels).squeeze(1)
 
     img = plt.imread(
@@ -392,8 +391,8 @@ if __name__ == "__main__":
     for i in range(t):
         k = torch.stack([rand_kernels[:, i]], 1)[0]
         masks.append(k)
-        print("-- k shape: ", k.shape)
-        print("-- img shape: ", img.shape)
+        # print("-- k shape: ", k.shape)
+        # print("-- img shape: ", img.shape)
 
         img = apply_ksu_kernel(img, k, pixel_range='0_1')
         masked_img.append(img)
@@ -403,8 +402,8 @@ if __name__ == "__main__":
     masked_img = np.transpose(masked_img, (0, 2, 3, 1))[0, ..., 0]
     # masked_img = cv2.cvtColor(masked_img, cv2.COLOR_RGB2GRAY)
 
-    print(" masked_img shape: ", masked_img.shape)
-    print(" mask shape: ", masks.shape)
+    # print(" masked_img shape: ", masked_img.shape)
+    # print(" mask shape: ", masks.shape)
 
     img = np.concatenate([masks, masked_img], axis=0)
 
