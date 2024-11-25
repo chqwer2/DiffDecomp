@@ -259,11 +259,13 @@ def apply_tofre(x_start, mask, params_dict=None, pixel_range='mean_std'):
         std = params_dict['img_std']
 
         if len(x_start.shape) == 4:
-            mean = mean.view(mean.shape[0], -1, 1, 1)
-            std = std.view(mean.shape[0], -1, 1, 1)
+            mean = mean.view(mean.shape[0], 1)
+            std = std.view(mean.shape[0], 1)
 
         print("shape of x_start: ", x_start.shape, mean.shape, std.shape)
+
         x_start = x_start * std + mean
+
         x_start = (x_start - x_start.min()) / (x_start.max() - x_start.min())
 
 
