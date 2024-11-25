@@ -897,18 +897,37 @@ class Trainer(object):
                                                      batch_size=batches,
                                                      faded_recon_sample=og_img,
                                                      aux=aux, params_dict=params_dict,
-                                                         sample_routine=routine))
+                                                     sample_routine=routine))
 
 
                     print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())
                     print("DEBUG - direct_recons shape: ", direct_recons.shape, direct_recons.max(), direct_recons.min())
 
-                    og_img = (og_img + 1) * 0.5
-                    aux = (aux + 1) * 0.5
-                    all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
-                    all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
-                    direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
-                    xt = (xt + 1) * 0.5
+                    og_img = og_img * img_std + img_mean
+                    _min = og_img.min()
+                    _max = og_img.max()
+                    og_img = (og_img - _min) / (_max - _min)
+
+                    all_images = all_images * img_std + img_mean
+                    all_images = (all_images - _min) / (_max - _min)
+                    all_recons = all_recons * img_std + img_mean
+                    all_recons = (all_recons - _min) / (_max - _min)
+                    direct_recons = direct_recons * img_std + img_mean
+                    direct_recons = (direct_recons - _min) / (_max - _min)
+                    xt = xt * img_std + img_mean
+                    xt = (xt - _min) / (_max - _min)
+
+                    aux = aux * aux_std + aux_mean
+                    aux = (aux - aux.min()) / (aux.max() - aux.min())
+
+                    # img_mean =
+                    # og_img = (og_img + 1) * 0.5
+                    # all_images = ((all_images + 1) * 0.5 ) .clamp_(0, 1)
+                    # all_recons = ((all_recons + 1) * 0.5) .clamp_(0, 1)
+                    # direct_recons = ((direct_recons + 1) * 0.5) .clamp_(0, 1)
+                    # xt = (xt + 1) * 0.5
+                    #
+                    # aux = (aux + 1) * 0.5
 
                     # print("DEBUG - og_img shape: ", og_img.shape, og_img.max(), og_img.min())
                     # print("DEBUG - xt shape: ", xt.shape, xt.max(), xt.min())
