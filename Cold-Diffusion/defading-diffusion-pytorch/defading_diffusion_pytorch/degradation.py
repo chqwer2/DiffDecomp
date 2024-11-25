@@ -178,7 +178,7 @@ def get_ksu_kernel(timesteps, image_size,
 
             print("cache_mask shape: ", cache_mask.sum())
 
-        masks = masks.flip(0)
+        masks = np.array(masks).flip(0)
 
 
 

@@ -346,6 +346,7 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
                             # print("k_residual = ", k_residual.sum().item(), t-2, t-1,
                             #       kt_sub_1.sum().item(), kt.sum().item())
+                            # 
                             print(f"k_residual = {k_residual.sum().item()}, kt_sub_1 = {kt_sub_1.sum().item()}, kt = {kt.sum().item()}, {t-2}, {t-1}")
 
 
