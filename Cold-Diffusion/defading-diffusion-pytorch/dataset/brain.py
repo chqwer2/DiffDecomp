@@ -15,6 +15,22 @@ from .basic import BasicDataset
 
 LABEL_NAME = ["bg", "NCR", "ED", "ET"]
 
+def normalize(data, mean, stddev, eps=0.0):
+    """
+    Normalize the given tensor.
+
+    Applies the formula (data - mean) / (stddev + eps).
+
+    Args:
+        data (torch.Tensor): Input data to be normalized.
+        mean (float): Mean value.
+        stddev (float): Standard deviation.
+        eps (float, default=0.0): Added to stddev to prevent dividing by zero.
+
+    Returns:
+        torch.Tensor: Normalized tensor
+    """
+    return (data - mean) / (stddev + eps)
 
 def normalize_instance(data, eps=0.0):
     """
