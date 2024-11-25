@@ -286,7 +286,7 @@ class FreBlock(nn.Module):
         imag = amp_fuse * torch.sin(pha_fuse) + 1e-8
 
         out = torch.complex(real, imag) + 1e-8
-        out = out * (1 - k) + msF_ori
+        out = out  + msF_ori    # * (1 - k)
 
         out = torch.fft.ifftshift(out, dim=[2, 3])
         out = torch.abs(torch.fft.irfft2(out, s=(H, W), norm='ortho'))
