@@ -150,7 +150,7 @@ class GaussianDiffusion(nn.Module):
         self.use_fre_loss = True
         self.update_kernel = False
         self.use_lpips = True
-        self.clamp_every_sample = False # Stride
+        self.clamp_every_sample = True # Stride
         self.use_fre_noise = True
 
     # if _MRIDOWN == "4X":
