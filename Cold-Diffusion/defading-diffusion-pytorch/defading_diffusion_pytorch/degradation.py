@@ -229,14 +229,14 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
         high_freq_mask = high_fre_mask_cls(H, W).to(fft.device)
         high_freq_mask = high_freq_mask.unsqueeze(0).unsqueeze(0).repeat(fft.shape[0], 1, 1, 1)
 
-        sigma = 0.2
-        sigma = torch.randn_like(fft_magnitude) * sigma
+        sigma = 0.3
+        noise = torch.randn_like(fft_magnitude) * sigma
         # noise_magnitude = sigma * fft_magnitude  # fft_magnitude.mean()
-        noise_magnitude = sigma * fft_magnitude.mean()
+        noise_magnitude_high = noise * fft_magnitude.mean() * high_freq_mask
+        noise_magnitude_low  = noise * fft_magnitude * (1 - high_freq_mask)
 
-        # fft = fft * mask
         # fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask * (1 - mask)
-        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude   #  * high_freq_mask
+        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude_high  + noise_magnitude_low
         fft_noisy_magnitude = torch.clamp(fft_noisy_magnitude, min=0.0)
 
         fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)

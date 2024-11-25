@@ -613,16 +613,20 @@ class GaussianDiffusion(nn.Module):
         self.debug_print = False
 
         # Add some Gaussian
-        sigma = torch.rand(1).item() * 0.2
+        sigma = 0.2
+        sigma = torch.rand(1).item() * sigma
+
         x_start_noisy = x_start.clone() + torch.randn_like(x_start) * sigma
+        aux           = aux + torch.randn_like(aux) * sigma
+
 
         x_mix, k = self.q_sample(x_start=x_start_noisy, t=t)
 
         # gaussian blur for x_mix
         x_mix = self.gaussian_blur(
             x_mix,
-            kernel_size=int(torch.randint(1, 5, (1,)).item() * 2 + 1),  # Ensure odd kernel size
-            sigma=torch.abs(torch.randn(1) * 1.5) .item() # Ensure sigma is positive
+            kernel_size=int(torch.randint(1, 9, (1,)).item() * 2 + 1),  # Ensure odd kernel size
+            sigma=torch.abs(torch.randn(1) * 3.0).item() # Ensure sigma is positive
         )
 
         if self.debug_print:
@@ -634,7 +638,7 @@ class GaussianDiffusion(nn.Module):
 
         elif self.backbone == 'twounet':
             x_recon = self.restore_fn(x_mix, aux, k, t)
-            loss = self.reconstruct_loss(x_start, x_recon)
+            loss = self.reconstruct_loss(x_start, x_recon) * 5.0
 
             # LPIPS
             if self.use_lpips:
@@ -642,18 +646,12 @@ class GaussianDiffusion(nn.Module):
                 lpips_loss = self.lpips(x_recon, x_start).mean()
                 loss += lpips_weight * lpips_loss
 
-            # self.ssim_loss = True
-            # if self.ssim_loss:
-            #     ssim_weight = 0.1
-            #
 
             if self.use_fre_loss:  # NAN
                 fft_weight = 0.1
                 amp = self.amploss(x_recon, x_start)
 
                 loss += fft_weight * amp
-                # if np.random.rand() < 0.01:
-                #     print("amp loss:", amp)   # ~ 1.2....
 
 
         elif self.backbone == 'twobranch':
@@ -841,11 +839,8 @@ class Trainer(object):
                 optimizer_state = self.opt.state_dict()
 
                 data_dict = next(self.dl)
-
                 img = data_dict['img'].cuda()
-
                 aux = data_dict['aux'].cuda()
-
                 loss = torch.mean(self.model(img, aux))
 
 
@@ -952,7 +947,6 @@ class Trainer(object):
 
                     print("combine shape: ", combine.shape)
                     utils.save_image(combine, str(self.results_folder / f'{self.step}-combine-{routine}.png'), nrow=6)
-                    # all_recons # SHape 50, 24, 1, 128, 128
 
                     # all_recon = all_recons[:, 0] # 50, 1, 128, 128
                     # Ensure all_recons is on the CPU
@@ -976,8 +970,8 @@ class Trainer(object):
 
                     utils.save_image(all_recons, str(self.results_folder / f'{self.step}-all_recons-{routine}.png'),
                                      nrow=1)
-                    utils.save_image(all_masks, str(self.results_folder / f'{self.step}-all_masks-{routine}.png'),
-                                        nrow=1)
+                    # utils.save_image(all_masks, str(self.results_folder / f'{self.step}-all_masks-{routine}.png'),
+                    #                     nrow=1)
 
                     acc_loss = acc_loss / (self.save_and_sample_every + 1)
                     print(f'Mean of last {self.step}: {acc_loss}, save to :', str(self.results_folder / f'{self.step}-combine.png'))

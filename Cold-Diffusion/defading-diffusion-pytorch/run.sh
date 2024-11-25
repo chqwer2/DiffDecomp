@@ -22,10 +22,10 @@ num_channels=1
 
 
 #diffusion_type=twobranch_fade    # unet | twobranch
-diffusion_type=twobranch_kspace    # Easy NaN
+#diffusion_type=twobranch_kspace    # Easy NaN
 
 #diffusion_type=unet_kspace
-#diffusion_type=twounet_kspace
+diffusion_type=twounet_kspace
 
 # diffusion_type=unet_fade    # unet | twobranch
 
