@@ -8,7 +8,7 @@ from functools import partial
 
 from torch.utils import data
 from pathlib import Path
-from torch.optim import Adam
+from torch.optim import Adam, AdamW, lr_scheduler
 from torchvision import transforms, utils
 import torch.nn.functional as F
 # from einops import rearrange
@@ -176,7 +176,7 @@ class GaussianDiffusion(nn.Module):
 
     @torch.no_grad()
     def sample(self, batch_size=16, faded_recon_sample=None, aux=None,
-               t=None, sample_routine=None):
+               t=None, params_dict=None, sample_routine=None):
 
         self.restore_fn.eval()
 
@@ -230,7 +230,7 @@ class GaussianDiffusion(nn.Module):
                     else:
                         k = torch.stack([self.kspace_kernels[i]], 1)
 
-                    faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
+                    faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k, params_dict)
 
         return_k = k
 
@@ -296,7 +296,7 @@ class GaussianDiffusion(nn.Module):
                     with torch.no_grad():
                         if t >=1:
                             k = self.get_kspace_kernels(t - 1, rand_kernels)
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                            recon_sample = apply_ksu_kernel(recon_sample, k, params_dict)
 
                     all_masks.append(k)
                     faded_recon_sample = recon_sample
@@ -309,7 +309,7 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_sub_1 = recon_sample
                             k = self.get_kspace_kernels(0, rand_kernels)
 
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                            recon_sample = apply_ksu_kernel(recon_sample, k, params_dict)
                             faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
                         else:
@@ -318,10 +318,10 @@ class GaussianDiffusion(nn.Module):
                     else:
                         with torch.no_grad():
                             k = self.get_kspace_kernels(t - 2, rand_kernels)
-                            recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k)
+                            recon_sample_sub_1 = apply_ksu_kernel(recon_sample, k, params_dict)
 
                             k = self.get_kspace_kernels(t - 1, rand_kernels)
-                            recon_sample = apply_ksu_kernel(recon_sample, k)
+                            recon_sample = apply_ksu_kernel(recon_sample, k, params_dict)
 
                         faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
                         if self.clamp_every_sample:
@@ -336,14 +336,14 @@ class GaussianDiffusion(nn.Module):
                         all_masks.append(k_known_mask)
                     else:
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
-                        faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
+                        faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full, params_dict)
 
                         with torch.no_grad():
 
                             kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels).cuda()
                             kt       = self.get_kspace_kernels(t - 1, rand_kernels).cuda()  # last one
                             k_residual = kt_sub_1 - kt
-                            recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
+                            recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual, params_dict)
                             # print(f"k_residual = {k_residual.sum().item()}, kt_sub_1 = {kt_sub_1.sum().item()}, kt = {kt.sum().item()}, {t-2}, {t-1}")
 
                         fre_amend = recon_sample_fre * k_residual
@@ -351,7 +351,7 @@ class GaussianDiffusion(nn.Module):
 
                         faded_recon_sample_fre = faded_recon_sample_fre * kt_sub_1
 
-                        faded_recon_sample = apply_to_spatial(faded_recon_sample_fre)
+                        faded_recon_sample = apply_to_spatial(faded_recon_sample_fre, params_dict)
 
                     k_known_mask += k_residual.cpu()
                     # all_masks.append(kt_sub_1.cpu()) #k_known_mask)
@@ -378,7 +378,7 @@ class GaussianDiffusion(nn.Module):
         return xt, direct_recons, recon_sample, return_k, all_recons, all_masks
 
     @torch.no_grad()
-    def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, times=None):
+    def all_sample(self, batch_size=16, faded_recon_sample=None, aux=None, t=None, params_dict=None, times=None):
         # TODO
         print("Running into all_sample...")
         rand_kernels = None
@@ -422,11 +422,11 @@ class GaussianDiffusion(nn.Module):
                     if rand_kernels is not None:
                         # print(f"kspace randkeynel k={rand_kernels[:, i].shape}, x={x.shape}")
                         k = torch.stack([rand_kernels[:, i]], 1)
-                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k, params_dict)
                     else:
                         # print(f"kspace k={self.kspace_kernels[i].shape}, x={x.shape}")
                         k = self.kspace_kernels[i]
-                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k)
+                        faded_recon_sample = apply_ksu_kernel(faded_recon_sample, k, params_dict)
 
         if self.discrete:
             faded_recon_sample = (faded_recon_sample + 1) * 0.5
@@ -468,9 +468,9 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
 
-                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, rand_kernels[i], params_dict)
                             else:
-                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i], params_dict)
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
@@ -481,9 +481,9 @@ class GaussianDiffusion(nn.Module):
                         with torch.no_grad():
                             if rand_kernels is not None:
                                 k = torch.stack([rand_kernels[:, i]], 1)
-                                recon_sample = apply_ksu_kernel(recon_sample, k)
+                                recon_sample = apply_ksu_kernel(recon_sample, k, params_dict)
                             else:
-                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i], params_dict)
 
                     faded_recon_sample = recon_sample
 
@@ -493,9 +493,9 @@ class GaussianDiffusion(nn.Module):
                             recon_sample_sub_1 = recon_sample
                             if rand_kernels is not None:
                                 k = torch.stack([rand_kernels[:, i]], 1)
-                                recon_sample = apply_ksu_kernel(recon_sample, k)
+                                recon_sample = apply_ksu_kernel(recon_sample, k, params_dict)
                             else:
-                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i])
+                                recon_sample = apply_ksu_kernel(recon_sample, self.kspace_kernels[i], params_dict)
 
                     faded_recon_sample = faded_recon_sample - recon_sample + recon_sample_sub_1
 
@@ -505,7 +505,7 @@ class GaussianDiffusion(nn.Module):
 
         return x0_list, xt_list
 
-    def q_sample(self, x_start, t):
+    def q_sample(self, x_start, t, params_dict=None):
         with torch.no_grad():
             rand_kernels = None
             
@@ -554,7 +554,7 @@ class GaussianDiffusion(nn.Module):
                     else:
                         k = torch.stack([self.kspace_kernels[i]], 1)
 
-                    x = apply_ksu_kernel(x, k, self.use_fre_noise)
+                    x = apply_ksu_kernel(x, k, self.use_fre_noise, params_dict)
                 all_fades.append(x)
 
         all_fades = torch.stack(all_fades)  # Fade, all_fades shape: torch.Size([5, 24, 3, 128, 128])
@@ -609,7 +609,7 @@ class GaussianDiffusion(nn.Module):
         return blurred
 
 
-    def p_losses(self, x_start, aux, t):
+    def p_losses(self, x_start, aux, t, params_dict):
         self.debug_print = False
 
         # Add some Gaussian
@@ -620,7 +620,7 @@ class GaussianDiffusion(nn.Module):
         aux           = aux + torch.randn_like(aux) * sigma
 
 
-        x_mix, k = self.q_sample(x_start=x_start_noisy, t=t)
+        x_mix, k = self.q_sample(x_start=x_start_noisy, t=t, params_dict=params_dict)
 
         # gaussian blur for x_mix
         x_mix = self.gaussian_blur(
@@ -649,7 +649,7 @@ class GaussianDiffusion(nn.Module):
 
             if self.use_fre_loss:  # NAN
                 fft_weight = 0.1
-                amp = self.amploss(x_recon, x_start)
+                amp = self.amploss(x_recon, x_start, k)
 
                 loss += fft_weight * amp
 
@@ -682,7 +682,7 @@ class GaussianDiffusion(nn.Module):
 
         return loss
 
-    def forward(self, x1, x2=None, *args, **kwargs):
+    def forward(self, x1, x2=None, params_dict=None, *args, **kwargs):
         b, c, h, w, device, img_size, = *x1.shape, x1.device, self.image_size
         assert h == img_size and w == img_size, f'height and width of image must be {img_size}'
         t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
@@ -693,7 +693,7 @@ class GaussianDiffusion(nn.Module):
         elif self.degradation_type == 'kspace':
             self.kspace_kernels = self.kspace_kernels.to(device)
 
-        loss = self.p_losses(x1, x2, t, *args, **kwargs)
+        loss = self.p_losses(x1, x2, t, params_dict, *args, **kwargs)
         max_norm = 1.0  # Maximum norm for gradients
         torch.nn.utils.clip_grad_norm_(self.restore_fn.parameters(), max_norm)
 
@@ -763,7 +763,8 @@ class Trainer(object):
                             pin_memory=True,
                             num_workers=16,
                             drop_last=True))
-        self.opt = Adam(diffusion_model.parameters(), lr=train_lr)
+        self.opt = AdamW(diffusion_model.parameters(), lr=train_lr, betas=(0.9, 0.999), weight_decay=1e-4)
+        self.scheduler = lr_scheduler.StepLR(self.opt, step_size=20000, gamma=0.5)
 
         self.step = 0
 
@@ -841,7 +842,13 @@ class Trainer(object):
                 data_dict = next(self.dl)
                 img = data_dict['img'].cuda()
                 aux = data_dict['aux'].cuda()
-                loss = torch.mean(self.model(img, aux))
+                img_mean = data_dict['img_mean'].cuda()
+                img_std = data_dict['img_std'].cuda()
+                aux_mean = data_dict['aux_mean'].cuda()
+                aux_std = data_dict['aux_std'].cuda()
+                params_dict = {'img_mean': img_mean, 'img_std': img_std, 'aux_mean': aux_mean, 'aux_std': aux_std}
+
+                loss = torch.mean(self.model(img, aux, params_dict))
 
 
                 if torch.isnan(loss).any():
@@ -858,13 +865,12 @@ class Trainer(object):
             if (self.step + 1) % (min(self.train_num_steps // 100 + 1, 100)) == 0:
                 print(f'{self.step + 1}: {u_loss}')
 
-
             # writer.add_scalar("Loss/train", loss.item(), self.step)
             acc_loss = acc_loss + (u_loss / self.gradient_accumulate_every)
 
 
             self.opt.step()
-
+            self.scheduler.step()
             self.opt.zero_grad()
 
             if self.step % self.update_ema_every == 0:
@@ -879,13 +885,19 @@ class Trainer(object):
                 for routine in ['default', 'x0_step_down', 'x0_step_down_fre']:
                     og_img = data_dict['img'].cuda()
                     aux = data_dict['aux'].cuda()
+                    img_mean = data_dict['img_mean'].cuda()
+                    img_std = data_dict['img_std'].cuda()
+                    aux_mean = data_dict['aux_mean'].cuda()
+                    aux_std = data_dict['aux_std'].cuda()
+                    params_dict = {'img_mean': img_mean, 'img_std': img_std, 'aux_mean': aux_mean, 'aux_std': aux_std}
 
                     # xt, direct_recons, all_images = self.ema_model.sample(batch_size=batches, faded_recon_sample=og_img)
                     xt, direct_recons, all_images, return_k, all_recons, all_masks = (
                                                      self.ema_model.module.sample(
                                                      batch_size=batches,
                                                      faded_recon_sample=og_img,
-                                                     aux=aux, sample_routine=routine))
+                                                     aux=aux, params_dict=params_dict,
+                                                         sample_routine=routine))
 
 
                     print("DEBUG - all_images shape: ", all_images.shape, all_images.max(), all_images.min())

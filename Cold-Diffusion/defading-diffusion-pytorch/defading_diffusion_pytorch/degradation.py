@@ -215,8 +215,8 @@ high_fre_mask_cls = high_fre_mask()
 
 
 
-def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
-    fft, mask = apply_tofre(x_start, mask, pixel_range)
+def apply_ksu_kernel(x_start, mask, use_fre_noise=False, params_dict=None, pixel_range='mean_std'):
+    fft, mask = apply_tofre(x_start, mask, params_dict, pixel_range)
 
 
     # Use the high frequency mask to add noise
@@ -245,14 +245,21 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
         fft = fft * mask
 
 
-    x_ksu = apply_to_spatial(fft, pixel_range)
+    x_ksu = apply_to_spatial(fft, params_dict, pixel_range)
 
     return x_ksu
 
 
-def apply_tofre(x_start, mask, pixel_range='-1_1'):
+def apply_tofre(x_start, mask, params_dict=None, pixel_range='mean_std'):
     if pixel_range == '0_1':
         pass
+
+    elif pixel_range == "mean_std":
+        mean = params_dict['img_mean']
+        std = params_dict['img_std']
+        x_start = x_start * std + mean
+        x_start = (x_start - x_start.min()) / (x_start.max() - x_start.min())
+
 
     elif pixel_range == '-1_1':
         # x_start (-1, 1) --> (0, 1)
@@ -270,12 +277,19 @@ def apply_tofre(x_start, mask, pixel_range='-1_1'):
 
 
 
-def apply_to_spatial(fft, pixel_range='-1_1'):
+def apply_to_spatial(fft, params_dict=None, pixel_range='mean_std'):
 
     x_ksu = ifft2(ifftshift(fft))
 
     if pixel_range == '0_1':
         x_ksu = torch.abs(x_ksu)
+
+    elif pixel_range == "mean_std":
+        mean = params_dict['img_mean']
+        std = params_dict['img_std']
+        x_ksu = x_ksu * std + mean
+        x_ksu = (x_ksu - x_ksu.min()) / (x_ksu.max() - x_ksu.min())
+
 
     elif pixel_range == '-1_1':
         x_ksu = torch.abs(x_ksu)

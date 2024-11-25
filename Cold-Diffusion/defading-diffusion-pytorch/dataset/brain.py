@@ -16,6 +16,26 @@ from .basic import BasicDataset
 LABEL_NAME = ["bg", "NCR", "ED", "ET"]
 
 
+def normalize_instance(data, eps=0.0):
+    """
+    Normalize the given tensor  with instance norm/
+
+    Applies the formula (data - mean) / (stddev + eps), where mean and stddev
+    are computed from the data itself.
+
+    Args:
+        data (torch.Tensor): Input data to be normalized
+        eps (float): Added to stddev to prevent dividing by zero
+
+    Returns:
+        torch.Tensor: Normalized tensor
+    """
+    mean = data.mean()
+    std = data.std()
+
+    return normalize(data, mean, std, eps), mean, std
+
+
 class BrainDataset(BasicDataset):
     def __init__(self, mode, base_dir, image_size, 
                  nclass, domains, aux_modality, **kwargs):
@@ -77,30 +97,38 @@ class BrainDataset(BasicDataset):
         std    = 1 if std < 1e-3 else std
         
         # img = (img - mean) / std
-        img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
-        if aux.max() - aux.min() > 1e-3:
-            aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
+        ### 对input image和target image都做(x-mean)/std的归一化操作
+        img, img_mean, img_std = normalize_instance(img, eps=1e-11)
+        aux, aux_mean, aux_std = normalize_instance(aux, eps=1e-11)
+
+        ### clamp input to ensure training stability.
+        img = np.clip(img, -6, 6)
+        aux = np.clip(aux, -6, 6)
+
+
+        # img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
+        # if aux.max() - aux.min() > 1e-3:
+        #     aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
        
        
         mask = mask[..., 0] 
         img, mask, aux = self.perform_trans(img, mask, aux)
         img, mask, aux = map(lambda arr: self.hwc_to_chw(arr), [img, mask, aux])
 
-        img = torch.clamp(img, 0, 1)
-        aux = torch.clamp(aux, 0, 1)
+        # img = torch.clamp(img, 0, 1)
+        # aux = torch.clamp(aux, 0, 1)
 
         # img = (img - img.min()) / (img.max() - img.min())  # [0 - 1]
         # aux = (aux - aux.min()) / (aux.max() - aux.min())  # [0 - 1]
-
-        img = img * 2 - 1.0
-        aux = aux * 2 - 1.0
-        
         
         if self.tile_z_dim > 1 and self.input_window == 1 and  self.num_channels == 3 : 
             img = img.repeat( [ self.tile_z_dim, 1, 1] )
             assert img.ndimension() == 3
 
-        data = {"img": img, "lb": mask, "aux": aux, 
+        data = {"img": img, "lb": mask, "aux": aux,
+                "img_mean": img_mean, "img_std": img_std,
+                "aux_mean": aux_mean, "aux_std": aux_std,
+
                 "is_start": curr_dict["is_start"],
                 "is_end": curr_dict["is_end"],
                 "nframe": np.int32(curr_dict["nframe"]),
