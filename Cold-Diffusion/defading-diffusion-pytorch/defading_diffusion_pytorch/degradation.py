@@ -191,6 +191,8 @@ def get_ksu_kernel(timesteps, image_size,
     # Return masks, excluding the first one
     return masks[1:]
 
+
+
 class high_fre_mask:
     def __init__(self):
         self.mask_cache = {}
@@ -234,7 +236,7 @@ def apply_ksu_kernel(x_start, mask, use_fre_noise=False, pixel_range='-1_1'):
 
         # fft = fft * mask
         # fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask * (1 - mask)
-        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude * high_freq_mask
+        fft_noisy_magnitude = fft_magnitude * mask + noise_magnitude   #  * high_freq_mask
         fft_noisy_magnitude = torch.clamp(fft_noisy_magnitude, min=0.0)
 
         fft = fft_noisy_magnitude * torch.exp(1j * fft_phase)

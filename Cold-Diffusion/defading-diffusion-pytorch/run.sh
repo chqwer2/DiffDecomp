@@ -30,13 +30,13 @@ diffusion_type=twobranch_kspace    # Easy NaN
 # diffusion_type=unet_fade    # unet | twobranch
 
 
-time_step=50
+time_step=20
 image_size=64
 sampling_routine=x0_step_down_fre  # x0_step_down_fre # x0_step_down_fre  # default | x0_step_down  | x0_step_down_fre
 loss_type=l1   #  l2 1     # l2 | l1 | l2_l1, l1 is better
 
 
-tag=set_baseline_l1_update_kernel_fix_center   # x0_step_down | x0_step_down_fre
+tag=add_blur   # x0_step_down | x0_step_down_fre
 
 deviceid=1
 # fre_before_attn + l1

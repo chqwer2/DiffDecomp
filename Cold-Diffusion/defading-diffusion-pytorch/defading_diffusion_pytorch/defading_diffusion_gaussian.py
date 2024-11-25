@@ -10,7 +10,7 @@ from torch.utils import data
 from pathlib import Path
 from torch.optim import Adam
 from torchvision import transforms, utils
-
+import torch.nn.functional as F
 # from einops import rearrange
 
 import torchgeometry as tgm
@@ -338,18 +338,13 @@ class GaussianDiffusion(nn.Module):
                         k_full = self.get_kspace_kernels(- 1, rand_kernels)
                         faded_recon_sample_fre, _ = apply_tofre(faded_recon_sample, k_full)
 
-
                         with torch.no_grad():
 
                             kt_sub_1 = self.get_kspace_kernels(t - 2, rand_kernels).cuda()
                             kt       = self.get_kspace_kernels(t - 1, rand_kernels).cuda()  # last one
                             k_residual = kt_sub_1 - kt
                             recon_sample_fre, k_residual = apply_tofre(recon_sample, k_residual)
-                            # print("k_residual = ", k_residual.sum().item(), t-2, t-1,
-                            #       kt_sub_1.sum().item(), kt.sum().item())
-                            # 
-                            print(f"k_residual = {k_residual.sum().item()}, kt_sub_1 = {kt_sub_1.sum().item()}, kt = {kt.sum().item()}, {t-2}, {t-1}")
-
+                            # print(f"k_residual = {k_residual.sum().item()}, kt_sub_1 = {kt_sub_1.sum().item()}, kt = {kt.sum().item()}, {t-2}, {t-1}")
 
                         fre_amend = recon_sample_fre * k_residual
                         faded_recon_sample_fre =  faded_recon_sample_fre + fre_amend  # * (1-k_residual)
@@ -591,17 +586,44 @@ class GaussianDiffusion(nn.Module):
         return loss
 
 
+    def gaussian_kernel(self, size: int, sigma: float):
+        """Generates a 2D Gaussian kernel."""
+        x = torch.arange(size).float() - size // 2
+        gauss = torch.exp(-x ** 2 / (2 * sigma ** 2))
+        kernel = gauss[:, None] @ gauss[None, :]
+        kernel /= kernel.sum()
+        return kernel
+
+    def gaussian_blur(self, input_tensor, kernel_size: int, sigma: float):
+        """Applies Gaussian blur to a 4D tensor (N, C, H, W)."""
+        # Create Gaussian kernel
+        kernel = self.gaussian_kernel(kernel_size, sigma).unsqueeze(0).unsqueeze(0)
+        kernel = kernel.expand(input_tensor.size(1), 1, kernel_size, kernel_size)  # For each channel
+
+        # Pad the input tensor to avoid size reduction
+        padding = kernel_size // 2
+        input_tensor = F.pad(input_tensor, (padding, padding, padding, padding), mode='reflect')
+
+        # Apply convolution
+        blurred = F.conv2d(input_tensor, kernel, groups=input_tensor.size(1))
+        return blurred
+
+
     def p_losses(self, x_start, aux, t):
         self.debug_print = False
 
         # Add some Gaussian
         sigma = torch.rand(1).item() * 0.2
+        x_start_noisy = x_start.clone() + torch.randn_like(x_start) * sigma
 
-        x_start_noisy = x_start + torch.randn_like(x_start) * sigma
         x_mix, k = self.q_sample(x_start=x_start_noisy, t=t)
 
-        # x_mix = x_mix + torch.randn_like(x_mix) * sigma  # used to add x_start, TODO
-
+        # gaussian blur for x_mix
+        x_mix = self.gaussian_blur(
+            x_mix,
+            kernel_size=int(torch.randint(1, 5, (1,)).item() * 2 + 1),  # Ensure odd kernel size
+            sigma=torch.abs(torch.randn(1).item() * 1.5)  # Ensure sigma is positive
+        )
 
         if self.debug_print:
             self.debug_print = False
