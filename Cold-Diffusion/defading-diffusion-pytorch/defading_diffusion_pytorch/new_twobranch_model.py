@@ -258,7 +258,7 @@ class FreBlock(nn.Module):
         msF = torch.fft. rfft2(fpre + 1e-8, norm='ortho')
         msF = torch.fft.fftshift(msF, dim=[2, 3])
 
-        msF_ori= msF.clone() * k
+        msF_ori= msF.clone() # * k
 
 
         msF_amp = torch.abs(msF)
