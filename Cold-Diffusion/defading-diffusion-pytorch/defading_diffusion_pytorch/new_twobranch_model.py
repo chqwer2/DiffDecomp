@@ -216,9 +216,9 @@ class CrossAttention(nn.Module):
 
 
 class FreBlock(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels, embed_dim = 256):
         super(FreBlock, self).__init__()
-        embed_dim = 256
+
         num_heads = 8
 
 
@@ -270,7 +270,7 @@ class FreBlock(nn.Module):
         batch_size, channels, height, width = msF_amp.shape
         msF_amp_flatten = msF_amp.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
         msF_pha_flatten = msF_pha.view(batch_size, channels, -1).permute(0, 2, 1)  # (batch_size, H*W, channels)
-        print("msF_amp_flatten shape", msF_amp_flatten.shape)
+        # print("msF_amp_flatten shape", msF_amp_flatten.shape)
 
         # channels = msF_amp.shape[1]
 
